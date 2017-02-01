@@ -205,50 +205,56 @@ void PairSW::compute(int eflag, int vflag)
   }
 
   if (vflag_fdotr) virial_fdotr_compute();
-  
 
-  // EDITING: output neighbour lists and energies
-  // after all computations are made
-  char buffer[5];
-  sprintf(buffer, "/neighbours%d.txt", myStep); 
-  std::cout << buffer << std::endl;
-  filename = dirName + buffer;
-  outfile.open(filename.c_str());
+  // write neighbour lists every 100 steps
+  if ( !(myStep % 100) ) {
+
+    // EDITING: output neighbour lists and energies
+    // after all computations are made
+    /*char buffer[20];
+    sprintf(buffer, "/neighbours%d.txt", myStep); 
+    std::string str(buffer);
+    filename = dirName + str;*/
+    outfile.open(filename.c_str(), std::ios::app);
+    // check if file successfully opened
+    //if ( !outfile.is_open() ) std::cout << "File is not opened" << std::endl;
+    std::cout << "Writing to file..." << std::endl;
+    for (ii = 0; ii < inum; ii++) {
+  	  i = ilist[ii];
+  	  double xi = x[i][0];
+  	  double yi = x[i][1];
+  	  double zi = x[i][2];
+
+  	  jlist = firstneigh[i];
+  	  jnum = numneigh[i];
+  	  for (jj = 0; jj < jnum; jj++) {
+  	    j = jlist[jj];
+  	    j &= NEIGHMASK;
+  	    jtag = tag[j];
+  	    jtype = map[type[j]];
+
+  	    delx = xi - x[j][0];
+  	    dely = yi - x[j][1];
+  	    delz = zi - x[j][2];
+
+  	    rsq = delx*delx + dely*dely + delz*delz;
+
+  	    ijparam = elem2param[itype][jtype][jtype];
+
+  	    if (rsq >= params[ijparam].cutsq) continue;
+
+        // save positions of neighbour j relative to position
+        // of central atom i for use in training
+  	    outfile << delx << " " << dely << " " << delz << " " << rsq << " ";
+  	  }
+      // store energy
+  		outfile << eatom[i] << std::endl;
+      //exit(1); 		
+  	}
+    outfile.close();
+    outfile.clear();
+  }
   myStep++;
-  for (ii = 0; ii < inum; ii++) {
-	  i = ilist[ii];
-	  double xi = x[i][0];
-	  double yi = x[i][1];
-	  double zi = x[i][2];
-
-	  jlist = firstneigh[i];
-	  jnum = numneigh[i];
-	  for (jj = 0; jj < jnum; jj++) {
-	    j = jlist[jj];
-	    j &= NEIGHMASK;
-	    jtag = tag[j];
-	    jtype = map[type[j]];
-
-	    delx = xi - x[j][0];
-	    dely = yi - x[j][1];
-	    delz = zi - x[j][2];
-
-	    rsq = delx*delx + dely*dely + delz*delz;
-
-	    ijparam = elem2param[itype][jtype][jtype];
-
-	    if (rsq >= params[ijparam].cutsq) continue;
-
-      // save positions of neighbour j relative to position
-      // of central atom i for use in training
-	    outfile << delx << " " << dely << " " << delz << " " << rsq << " ";
-	  }
-    // store energy
-		outfile << eatom[i] << std::endl;
-    //exit(1); 		
-	}
-  outfile.close();
-  outfile.clear();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -275,29 +281,20 @@ void PairSW::makeDirectory()
   timeinfo = localtime (&rawtime);
 
   strftime (buffer,15,"%d.%m-%H.%M.%S", timeinfo);
-  std::string dirName(buffer);
-  dirName = "Data/" + dirName;
+  std::string str(buffer);
+  dirName = "Data/" + str;
 
   std::string command = "mkdir " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not make directory" << std::endl;
   filename = dirName + "/" + filename;
+  std::cout << "DIRNAME : " << dirName << std::endl;
   std::cout << "FILENAME: " << filename << std::endl;
 
   // copy input script to folder for reference
   command = "cp bulkSi.in " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not copy input script" << std::endl;
-
-  // open file for neighbour storage 
-  outfile.open(filename.c_str(), std::ios::trunc);
-
-  // check if file successfully opened
-  if ( !outfile.is_open() ) std::cout << "File is not opened" << std::endl;
-  std::cout << filename << std::endl;  
-
-  outfile.close();
-  outfile.clear();  
 }
 
 /* ----------------------------------------------------------------------
