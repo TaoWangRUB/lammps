@@ -206,19 +206,26 @@ void PairSW::compute(int eflag, int vflag)
 
   if (vflag_fdotr) virial_fdotr_compute();
 
-  // write neighbour lists every 100 steps
-  if ( !(myStep % 100) ) {
+  
+  // EDITING: output neighbour lists and energies
+  // after all computations are made
 
-    // EDITING: output neighbour lists and energies
-    // after all computations are made
+  // write neighbour lists every 100 steps
+  if ( !(myStep % 10) ) {
+
+    // Writing out a new file for each time step?
+    // No point...
     /*char buffer[20];
     sprintf(buffer, "/neighbours%d.txt", myStep); 
     std::string str(buffer);
     filename = dirName + str;*/
+
     outfile.open(filename.c_str(), std::ios::app);
-    // check if file successfully opened
-    //if ( !outfile.is_open() ) std::cout << "File is not opened" << std::endl;
-    std::cout << "Writing to file..." << std::endl;
+    //std::cout << "Writing to file..." << std::endl;
+
+    // sampling just a few configs for each time step
+    // because the system is quite homogeneous
+    inum = 10;
     for (ii = 0; ii < inum; ii++) {
   	  i = ilist[ii];
   	  double xi = x[i][0];
@@ -291,10 +298,18 @@ void PairSW::makeDirectory()
   std::cout << "DIRNAME : " << dirName << std::endl;
   std::cout << "FILENAME: " << filename << std::endl;
 
-  // copy input script to folder for reference
+  // copy input script and potential file to folder for reference
   command = "cp bulkSi.in " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not copy input script" << std::endl;
+  command = "cp ../../lammps/src/pair_sw.cpp" + dirName;
+  if ( system(command.c_str()) ) 
+    std::cout << "Could not copy lammps script" << std::endl;
+
+  // trying to open file, check if file successfully opened
+  outfile.open(filename.c_str());
+  if ( !outfile.is_open() ) 
+    std::cout << "File is not opened" << std::endl;
 }
 
 /* ----------------------------------------------------------------------
