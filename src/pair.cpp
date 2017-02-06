@@ -40,6 +40,8 @@
 #include "math_const.h"
 #include "error.h"
 
+#include <iostream>
+
 using namespace LAMMPS_NS;
 using namespace MathConst;
 

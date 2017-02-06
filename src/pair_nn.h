@@ -21,6 +21,7 @@ PairStyle(nn,PairNN)
 #define LMP_PAIR_NN_H
 
 #include "pair.h"
+
 #include <armadillo>
 #include <vector>
 
@@ -31,31 +32,19 @@ class PairNN : public Pair {
   PairNN(class LAMMPS *);
   virtual ~PairNN();
   virtual void compute(int, int);
+  virtual void settings(int, char **);
+  void coeff(int, char **);
+  double init_one(int, int);
+  void init_style();
+
   double network(double dataPoint);
   double backPropagation();
   arma::mat sigmoid(arma::mat matrix);
   arma::mat sigmoidDerivative(arma::mat matrix);
-  void settings(int, char **);
-  void coeff(int, char **);
-  void init_style();
-  void init_list(int, class NeighList *);
-  double init_one(int, int);
-  void write_restart(FILE *);
-  void read_restart(FILE *);
-  void write_restart_settings(FILE *);
-  void read_restart_settings(FILE *);
-  void write_data(FILE *);
-  void write_data_all(FILE *);
-  double single(int, int, int, int, double, double, double, double &);
-  void *extract(const char *, int &);
 
  protected:
-  double cut_global;
-  double **cut;
-  double **epsilon,**sigma;
-  double **lj1,**lj2,**lj3,**lj4,**offset;
-  double *cut_respa;
-  
+  double cutoff;
+
   int m_nLayers;
   int m_nNodes;
   std::vector<arma::mat> m_weights            = std::vector<arma::mat>();
@@ -67,7 +56,8 @@ class PairNN : public Pair {
   int m_numberOfInputs;
   int m_numberOfOutputs;
 
-  virtual void allocate();
+  void allocate();
+  void read_file(char *);
 };
 
 }
@@ -87,9 +77,40 @@ E: Incorrect args for pair coefficients
 
 Self-explanatory.  Check the input script or data file.
 
-E: Pair cutoff < Respa interior cutoff
+E: Pair style Vashishta requires atom IDs
 
-One or more pairwise cutoffs are too short to use with the specified
-rRESPA cutoffs.
+This is a requirement to use the Vashishta potential.
+
+E: Pair style Vashishta requires newton pair on
+
+See the newton command.  This is a restriction to use the Vashishta
+potential.
+
+E: All pair coeffs are not set
+
+All pair coefficients must be set in the data file or by the
+pair_coeff command before running a simulation.
+
+E: Cannot open Vashishta potential file %s
+
+The specified Vashishta potential file cannot be opened.  Check that the path
+and name are correct.
+
+E: Incorrect format in Vashishta potential file
+
+Incorrect number of words per line in the potential file.
+
+E: Illegal Vashishta parameter
+
+One or more of the coefficients defined in the potential file is
+invalid.
+
+E: Potential file has duplicate entry
+
+The potential file has more than one entry for the same element.
+
+E: Potential file is missing an entry
+
+The potential file does not have a needed entry.
 
 */

@@ -255,8 +255,7 @@ void PairSW::compute(int eflag, int vflag)
   	    outfile << delx << " " << dely << " " << delz << " " << rsq << " ";
   	  }
       // store energy
-  		outfile << eatom[i] << std::endl;
-      //exit(1); 		
+  		outfile << eatom[i] << std::endl;	
   	}
     outfile.close();
     outfile.clear();
