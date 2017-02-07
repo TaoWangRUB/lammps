@@ -211,7 +211,7 @@ void PairSW::compute(int eflag, int vflag)
   // after all computations are made
 
   // write neighbour lists every 100 steps
-  if ( !(myStep % 10) ) {
+  if ( !(myStep % 1000) ) {
 
     // Writing out a new file for each time step?
     // No point...
@@ -219,13 +219,14 @@ void PairSW::compute(int eflag, int vflag)
     sprintf(buffer, "/neighbours%d.txt", myStep); 
     std::string str(buffer);
     filename = dirName + str;*/
-
+    //std::string filename = "Data/07.02-14.05.52/neighbours.txt";
     outfile.open(filename.c_str(), std::ios::app);
     //std::cout << "Writing to file..." << std::endl;
+    // trying to open file, check if file successfully opened
 
     // sampling just a few configs for each time step
     // because the system is quite homogeneous
-    inum = 10;
+    inum = 100;
     for (ii = 0; ii < inum; ii++) {
   	  i = ilist[ii];
   	  double xi = x[i][0];

@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pair_nn.h"
+#include "pair_nn_manybody.h"
 #include "atom.h"
 #include "neighbor.h"
 #include "neigh_request.h"
@@ -41,7 +41,7 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairNN::PairNN(LAMMPS *lmp) : Pair(lmp)
+PairNNManyBody::PairNNManyBody(LAMMPS *lmp) : Pair(lmp)
 {
   single_enable = 0; // We don't provide the force between two atoms only since it is manybody
   restartinfo = 0;   // We don't write anything to restart file
@@ -54,7 +54,7 @@ PairNN::PairNN(LAMMPS *lmp) : Pair(lmp)
    check if allocated, since class can be destructed when incomplete
 ------------------------------------------------------------------------- */
 
-PairNN::~PairNN()
+PairNNManyBody::~PairNNManyBody()
 {
   if (copymode) return;
   // If you allocate stuff you should delete and deallocate here. 
@@ -69,7 +69,7 @@ PairNN::~PairNN()
 
 /* ---------------------------------------------------------------------- */
 
-double PairNN::network(double dataPoint) {
+double PairNNManyBody::network(double dataPoint) {
 
     // convert data point to 1x1 matrix
     arma::mat data(1,1); data(0,0) = dataPoint;
@@ -95,7 +95,7 @@ double PairNN::network(double dataPoint) {
     return m_activations[m_nLayers+1](0,0);
 }
 
-double PairNN::backPropagation() {
+double PairNNManyBody::backPropagation() {
   // find derivate of output w.r.t. intput, i.e. dE/dr_ij
   // need to find the "error" terms for all the nodes in all the layers
 
@@ -117,19 +117,20 @@ double PairNN::backPropagation() {
   return m_derivatives[0](0,0);
 }
 
-arma::mat PairNN::sigmoid(arma::mat matrix) {
+arma::mat PairNNManyBody::sigmoid(arma::mat matrix) {
 
     return 1.0/(1 + arma::exp(-matrix));
 }
 
-arma::mat PairNN::sigmoidDerivative(arma::mat matrix) {
+arma::mat PairNNManyBody::sigmoidDerivative(arma::mat matrix) {
 
     arma::mat sigmoidMatrix = sigmoid(matrix);
     return sigmoidMatrix % (1 - sigmoidMatrix);
 }
 
-void PairNN::compute(int eflag, int vflag)
+void PairNNManyBody::compute(int eflag, int vflag)
 {
+
   double evdwl = 0.0;
   if (eflag || vflag) ev_setup(eflag,vflag);
   else evflag = vflag_fdotr = 0;
@@ -220,7 +221,7 @@ void PairNN::compute(int eflag, int vflag)
 
 /* ---------------------------------------------------------------------- */
 
-void PairNN::allocate()
+void PairNNManyBody::allocate()
 {
   allocated = 1;
   int n = atom->ntypes;
@@ -232,7 +233,7 @@ void PairNN::allocate()
    global settings
 ------------------------------------------------------------------------- */
 
-void PairNN::settings(int narg, char **arg)
+void PairNNManyBody::settings(int narg, char **arg)
 {
   if (narg != 0) error->all(FLERR,"Illegal pair_style command");
 }
@@ -241,7 +242,7 @@ void PairNN::settings(int narg, char **arg)
    set coeffs for one or more type pairs
 ------------------------------------------------------------------------- */
 
-void PairNN::coeff(int narg, char **arg)
+void PairNNManyBody::coeff(int narg, char **arg)
 {
   if (!allocated) allocate();
 
@@ -274,7 +275,7 @@ void PairNN::coeff(int narg, char **arg)
    init specific to this pair style
 ------------------------------------------------------------------------- */
 
-void PairNN::init_style()
+void PairNNManyBody::init_style()
 {
   if (atom->tag_enable == 0)
     error->all(FLERR,"Pair style NN requires atom IDs");
@@ -291,7 +292,7 @@ void PairNN::init_style()
    init for one type pair i,j and corresponding j,i
 ------------------------------------------------------------------------- */
 
-double PairNN::init_one(int i, int j)
+double PairNNManyBody::init_one(int i, int j)
 {
   if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
 
@@ -300,7 +301,7 @@ double PairNN::init_one(int i, int j)
 
 /* ---------------------------------------------------------------------- */
 
-void PairNN::read_file(char *file)
+void PairNNManyBody::read_file(char *file)
 {
   
   std::ifstream input;
