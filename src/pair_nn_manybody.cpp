@@ -69,13 +69,11 @@ PairNNManyBody::~PairNNManyBody()
 
 /* ---------------------------------------------------------------------- */
 
-double PairNNManyBody::network(double dataPoint) {
-
-    // convert data point to 1x1 matrix
-    arma::mat data(1,1); data(0,0) = dataPoint;
+double ManyNeighbourNN::network(arma::mat inputVector) {
+    // input vector is a 1xinputs vector
 
     // linear activation for input layer
-    m_preActivations[0] = data;
+    m_preActivations[0] = inputVector;
     m_activations[0] = m_preActivations[0];
 
     // hidden layers
@@ -83,19 +81,18 @@ double PairNNManyBody::network(double dataPoint) {
         // weights and biases starts at first hidden layer:
         // weights[0] are the weights connecting input layer to first hidden layer
         m_preActivations[i+1] = m_activations[i]*m_weights[i] + m_biases[i];
-        m_activations[i+1] = sigmoid(m_preActivations[i+1]);
+        m_activations[i+1] = ActivationFunctions::sigmoid(m_preActivations[i+1]);
     }
 
     // linear activation for output layer
-    m_preActivations[m_nLayers+1] = m_activations[m_nLayers]*m_weights[m_nLayers]
-                                    + m_biases[m_nLayers];
+    m_preActivations[m_nLayers+1] = m_activations[m_nLayers]*m_weights[m_nLayers] + m_biases[m_nLayers];
     m_activations[m_nLayers+1] = m_preActivations[m_nLayers+1];
 
-    // return activation of output neuron, which is a 1x1-matrix
+    // return activation of output neuron
     return m_activations[m_nLayers+1](0,0);
 }
 
-double PairNNManyBody::backPropagation() {
+arma::mat PairNNManyBody::backPropagation() {
   // find derivate of output w.r.t. intput, i.e. dE/dr_ij
   // need to find the "error" terms for all the nodes in all the layers
 
@@ -111,21 +108,39 @@ double PairNNManyBody::backPropagation() {
                          sigmoidDerivative(m_preActivations[i]);
   }
 
-  // linear activation function for input neuron
+  // linear activation function for input neurons
   m_derivatives[0] = m_derivatives[1]*m_weightsTransposed[0];
 
-  return m_derivatives[0](0,0);
+  return m_derivatives[0];
 }
 
 arma::mat PairNNManyBody::sigmoid(arma::mat matrix) {
 
-    return 1.0/(1 + arma::exp(-matrix));
+  return 1.0/(1 + arma::exp(-matrix));
 }
 
 arma::mat PairNNManyBody::sigmoidDerivative(arma::mat matrix) {
 
-    arma::mat sigmoidMatrix = sigmoid(matrix);
-    return sigmoidMatrix % (1 - sigmoidMatrix);
+  arma::mat sigmoidMatrix = sigmoid(matrix);
+  return sigmoidMatrix % (1 - sigmoidMatrix);
+}
+
+arma::mat cutOffFunction(arma::mat Rij, double Rc) {
+
+  return 0.5*(arma::cos(3.14*Rij/Rc) + 1)
+
+}
+
+double PairNNManyBody::G2(arma::mat Rij, double eta, double Rs, double Rc) {
+
+  return arma::accu( arma::exp(-eta*(Rij - Rs)*(Rij - Rs)) % 
+                           cutOffFunction(Rij, Rc) );
+
+}
+
+double G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk, arma::mat theta, 
+          double zeta, double eta, double cutoff, double lambda) {
+
 }
 
 void PairNNManyBody::compute(int eflag, int vflag)
@@ -159,11 +174,12 @@ void PairNNManyBody::compute(int eflag, int vflag)
     double fxtmp = fytmp = fztmp = 0.0;
 
     // two-body interactions, skip half of them
-
     int *jlist = firstneigh[i];
     int jnum = numneigh[i];
     int numshort = 0;
 
+    // collect all neighbours in arma matrix
+    arma::mat distanceNeighbours(1, m_numberOfInputs);
     for (int jj = 0; jj < jnum; jj++) {
 
       int j = jlist[jj];
@@ -187,24 +203,29 @@ void PairNNManyBody::compute(int eflag, int vflag)
 
       if (rsq >= cutoff*cutoff) continue;
 
-      // Add stuff to symmetry functions (later)
-      // for now, just compute energy of one neighbour at a time
+      // add distances to symmetry functions
       double r = sqrt(rsq);
-      evdwl = network(r);
-        
-      double dEdr = backPropagation();
-      double fpair = -dEdr / r;
-      f[i][0] += fpair*delx;
-      f[i][1] += fpair*dely;
-      f[i][2] += fpair*delz;
-      f[j][0] -= delx*fpair;
-      f[j][1] -= dely*fpair;
-      f[j][2] -= delz*fpair;
-
-      //if (evflag) ev_tally_full(i,evdwl,0.0,fpair,delx,dely,delz);
-      if (evflag) ev_tally(i,j,nlocal,newton_pair,
-                           evdwl,0.0,fpair,delx,dely,delz);
+      distanceNeighbours(0,jj) == r;
     }
+
+    // transform with symmetry functions
+
+
+    evdwl = network(distanceNeighbours);
+    dEdG = backPropagation();
+
+    //if (evflag) ev_tally_full(i,evdwl,0.0,fpair,delx,dely,delz);
+    if (evflag) ev_tally(i,j,nlocal,newton_pair,
+                         evdwl,0.0,fpair,delx,dely,delz);
+        
+    double dEdr = backPropagation();
+    double fpair = -dEdr / r;
+    f[i][0] += fpair*delx;
+    f[i][1] += fpair*dely;
+    f[i][2] += fpair*delz;
+    f[j][0] -= delx*fpair;
+    f[j][1] -= dely*fpair;
+    f[j][2] -= delz*fpair;
 
     // Apply neural network to get potential energy and forces
 

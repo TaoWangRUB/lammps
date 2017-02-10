@@ -37,10 +37,15 @@ class PairNNManyBody : public Pair {
   double init_one(int, int);
   void init_style();
 
-  double network(double dataPoint);
-  double backPropagation();
+  double network(arma::mat inputVector);
+  arma::mat backPropagation();
   arma::mat sigmoid(arma::mat matrix);
   arma::mat sigmoidDerivative(arma::mat matrix);
+  arma::mat cutOffFunction(arma::mat Rij, double Rc);
+  double G1(arma::mat Rij, cutoff);
+  double G2(arma::mat Rij, double eta, double Rs, double Rc);
+  double G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
+            double zeta, double eta, double cutoff, double lambda);
 
  protected:
   double cutoff;
