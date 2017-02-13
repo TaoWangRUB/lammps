@@ -17,8 +17,8 @@ PairStyle(nn/manybody,PairNNManyBody)
 
 #else
 
-#ifndef LMP_PAIR_NN_H
-#define LMP_PAIR_NN_H
+#ifndef LMP_PAIR_NN_MANYBODY_H
+#define LMP_PAIR_NN_MANYBODY_H
 
 #include "pair.h"
 
@@ -41,11 +41,16 @@ class PairNNManyBody : public Pair {
   arma::mat backPropagation();
   arma::mat sigmoid(arma::mat matrix);
   arma::mat sigmoidDerivative(arma::mat matrix);
-  arma::mat cutOffFunction(arma::mat Rij, double Rc);
-  double G1(arma::mat Rij, cutoff);
-  double G2(arma::mat Rij, double eta, double Rs, double Rc);
+  arma::mat Fc(arma::mat Rij, double Rc);
+  arma::mat dFcdR(arma::mat Rij, double Rc);
+  double G1(arma::mat Rij, double Rc);
+  arma::mat dG1dR(arma::mat Rij, double Rc);;
+  double G2(arma::mat Rij, double eta, double Rc, double Rs);
+  arma::mat dG2dR(arma::mat Rij, double eta, double Rc, double Rs);
   double G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
-            double zeta, double eta, double cutoff, double lambda);
+            double eta, double Rc, double zeta, double lambda);
+  double dG4dR(arma::mat Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
+               double eta, double Rc, double zeta, double lambda);
 
  protected:
   double cutoff;
@@ -58,8 +63,11 @@ class PairNNManyBody : public Pair {
   std::vector<arma::mat> m_preActivations     = std::vector<arma::mat>();
   std::vector<arma::mat> m_activations        = std::vector<arma::mat>();
   std::vector<arma::mat> m_derivatives        = std::vector<arma::mat>();
+  arma::mat m_parameters;
   int m_numberOfInputs;
   int m_numberOfOutputs;
+  int m_numberOfSymmFunc;
+  int m_numberOfParameters;
 
   void allocate();
   void read_file(char *);

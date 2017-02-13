@@ -69,19 +69,19 @@ PairNNManyBody::~PairNNManyBody()
 
 /* ---------------------------------------------------------------------- */
 
-double ManyNeighbourNN::network(arma::mat inputVector) {
-    // input vector is a 1xinputs vector
+double PairNNManyBody::network(arma::mat inputVector) {
+    // inputGraph vector is a 1xinputGraphs vector
 
-    // linear activation for input layer
+    // linear activation for inputGraph layer
     m_preActivations[0] = inputVector;
     m_activations[0] = m_preActivations[0];
 
     // hidden layers
     for (int i=0; i < m_nLayers; i++) {
         // weights and biases starts at first hidden layer:
-        // weights[0] are the weights connecting input layer to first hidden layer
+        // weights[0] are the weights connecting inputGraph layer to first hidden layer
         m_preActivations[i+1] = m_activations[i]*m_weights[i] + m_biases[i];
-        m_activations[i+1] = ActivationFunctions::sigmoid(m_preActivations[i+1]);
+        m_activations[i+1] = sigmoid(m_preActivations[i+1]);
     }
 
     // linear activation for output layer
@@ -97,7 +97,7 @@ arma::mat PairNNManyBody::backPropagation() {
   // need to find the "error" terms for all the nodes in all the layers
 
   // the derivative of the output neuron's activation function w.r.t.
-  // its input is propagated backwards.
+  // its inputGraph is propagated backwards.
   // the output activation function is f(x) = x, so this is 1
   arma::mat output(1,1); output.fill(1);
   m_derivatives[m_nLayers+1] = output;
@@ -108,7 +108,7 @@ arma::mat PairNNManyBody::backPropagation() {
                          sigmoidDerivative(m_preActivations[i]);
   }
 
-  // linear activation function for input neurons
+  // linear activation function for inputGraph neurons
   m_derivatives[0] = m_derivatives[1]*m_weightsTransposed[0];
 
   return m_derivatives[0];
@@ -125,28 +125,62 @@ arma::mat PairNNManyBody::sigmoidDerivative(arma::mat matrix) {
   return sigmoidMatrix % (1 - sigmoidMatrix);
 }
 
-arma::mat cutOffFunction(arma::mat Rij, double Rc) {
+arma::mat PairNNManyBody::Fc(arma::mat Rij, double Rc) {
 
-  return 0.5*(arma::cos(3.14*Rij/Rc) + 1)
-
-}
-
-double PairNNManyBody::G2(arma::mat Rij, double eta, double Rs, double Rc) {
-
-  return arma::accu( arma::exp(-eta*(Rij - Rs)*(Rij - Rs)) % 
-                           cutOffFunction(Rij, Rc) );
+  return 0.5*(arma::cos(3.14*Rij/Rc) + 1);
 
 }
 
-double G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk, arma::mat theta, 
-          double zeta, double eta, double cutoff, double lambda) {
+arma::mat PairNNManyBody::dFcdR(arma::mat Rij, double Rc) {
 
+  return -(0.5*3.14/Rc) * (arma::sin(3.14*Rij/Rc) + 1); 
+}
+
+double PairNNManyBody::G1(arma::mat Rij, double Rc) {
+
+  return arma::accu( Fc(Rij, Rc) );
+}
+
+arma::mat PairNNManyBody::dG1dR(arma::mat Rij, double Rc) {
+
+  return dFcdR(Rij, Rc);
+}
+
+double PairNNManyBody::G2(arma::mat Rij, double eta, double Rc, double Rs) {
+
+  return arma::accu( arma::exp(-eta*(Rij - Rs)%(Rij - Rs)) % Fc(Rij, Rc) );
+}
+
+arma::mat PairNNManyBody::dG2dR(arma::mat Rij, double eta, double Rc, double Rs) {
+
+  return arma::exp(-eta*(Rij - Rs)%(Rij - Rs)) % 
+         ( 2*eta*(Rs - Rij) + dFcdR(Rij, Rc) );
+}
+
+double PairNNManyBody::G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk, 
+                          arma::mat cosTheta, double eta, double Rc, 
+                          double zeta, double lambda) {
+
+  return pow(2, 1-zeta) * 
+         arma::accu( pow(1 + lambda*cosTheta, zeta) % 
+         arma::exp( -eta*(Rij%Rij + Rik%Rik + Rjk%Rjk) ) % 
+         Fc(Rij, Rc) % Fc(Rik, Rc) % 
+         Fc(Rjk, Rc) );
+}
+
+double PairNNManyBody::dG4dR(arma::mat Rij, arma::mat Rik, arma::mat Rjk, 
+                             arma::mat cosTheta, double eta, double Rc, 
+                             double zeta, double lambda) {
+
+  // to be implemented
+  return 0;
 }
 
 void PairNNManyBody::compute(int eflag, int vflag)
 {
 
   double evdwl = 0.0;
+  eng_vdwl = 0.0;
   if (eflag || vflag) ev_setup(eflag,vflag);
   else evflag = vflag_fdotr = 0;
 
@@ -179,22 +213,14 @@ void PairNNManyBody::compute(int eflag, int vflag)
     int numshort = 0;
 
     // collect all neighbours in arma matrix
-    arma::mat distanceNeighbours(1, m_numberOfInputs);
+    arma::mat Rij(1, 100);
+    arma::mat dr(100, 3);
+    int neighbours = 0;
     for (int jj = 0; jj < jnum; jj++) {
 
       int j = jlist[jj];
       j &= NEIGHMASK;
       tagint jtag = tag[j];
-
-      if (itag > jtag) {
-        if ((itag+jtag) % 2 == 0) continue;
-      } else if (itag < jtag) {
-        if ((itag+jtag) % 2 == 1) continue;
-      } else {
-        if (x[j][2] < ztmp) continue;
-        if (x[j][2] == ztmp && x[j][1] < ytmp) continue;
-        if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp) continue;
-      }
 
       double delx = xtmp - x[j][0];
       double dely = ytmp - x[j][1];
@@ -203,38 +229,55 @@ void PairNNManyBody::compute(int eflag, int vflag)
 
       if (rsq >= cutoff*cutoff) continue;
 
-      // add distances to symmetry functions
+      // store coordinates of neighbour
       double r = sqrt(rsq);
-      distanceNeighbours(0,jj) == r;
+      dr(neighbours,0) = delx;
+      dr(neighbours,1) = dely;
+      dr(neighbours,2) = delz;
+      Rij(0,jj) == r;
+      neighbours++;
     }
 
-    // transform with symmetry functions
+    // get rid of empty elements
+    Rij = Rij.head_cols(neighbours);
+    dr = dr.head_rows(neighbours);
 
+    // transform with symmetry functions, loop over all the parameters
+    arma::mat inputVector(m_numberOfSymmFunc, 1);
+    if (m_numberOfParameters == 1) 
+      for (int s=0; s < m_numberOfSymmFunc; s++) 
+        inputVector(s,0) = G1(Rij, m_parameters(s,0));
+    else
+      for (int s=0; s < m_numberOfSymmFunc; s++)
+        inputVector(s,0) = G2(Rij, m_parameters(s,0), 
+                              m_parameters(s,1), m_parameters(s,2));
 
-    evdwl = network(distanceNeighbours);
-    dEdG = backPropagation();
+    // apply NN to get energy
+    evdwl = network(inputVector);
+    eng_vdwl += evdwl;
 
-    //if (evflag) ev_tally_full(i,evdwl,0.0,fpair,delx,dely,delz);
-    if (evflag) ev_tally(i,j,nlocal,newton_pair,
-                         evdwl,0.0,fpair,delx,dely,delz);
-        
-    double dEdr = backPropagation();
-    double fpair = -dEdr / r;
-    f[i][0] += fpair*delx;
-    f[i][1] += fpair*dely;
-    f[i][2] += fpair*delz;
-    f[j][0] -= delx*fpair;
-    f[j][1] -= dely*fpair;
-    f[j][2] -= delz*fpair;
+    // backpropagate to obtain gradient of NN
+    arma::mat dEdG = backPropagation();
+    
+    // calculate forces by differentiating the symmetry functions
+    // UNTRUE(?): dEdR(j) will be the force contribution from atom j on atom i
+    arma::vec dEdR = arma::zeros<arma::vec>(neighbours);
+    if (m_numberOfParameters == 1) 
+      for (int s=0; s < m_numberOfSymmFunc; s++) 
+        dEdR += dEdG(0,s) * dG1dR(Rij, m_parameters(s,0));
+    else
+      for (int s=0; s < m_numberOfSymmFunc; s++)
+        dEdR += dEdG(0,s) * dG2dR(Rij, m_parameters(s,0), 
+                            m_parameters(s,1), m_parameters(s,2));
 
-    // Apply neural network to get potential energy and forces
+    // find total force
+    for (int l=0; l < neighbours; l++) {
+      double fpair = -dEdG(0,l) * dEdR(l) / Rij(0,l);
+      f[i][0] += fpair*dr(l,0);
+      f[i][1] += fpair*dr(l,1);
+      f[i][2] += fpair*dr(l,2);
+    }
 
-    /*f[i][0] += fxtmp;
-    f[i][1] += fytmp;
-    f[i][2] += fztmp;*/
-    //eng_vdwl += 1.0; // Just to see that we get some potential energy.
-    // 0.5 since every other atom should somehow add the other half I guess.
-    //eng_vdwl += 0.5*evdwl; 
   }
 
   if (vflag_fdotr) virial_fdotr_compute();
@@ -324,17 +367,22 @@ double PairNNManyBody::init_one(int i, int j)
 
 void PairNNManyBody::read_file(char *file)
 {
+  // convert to string 
+  std::string trainingDir(file);
+  std::string graphFile = trainingDir + "/graph.dat";
+  std::cout << "Graph file: " << graphFile << std::endl;
   
-  std::ifstream input;
-  input.open(file, std::ios::in);
+  // open graph file
+  std::ifstream inputGraph;
+  inputGraph.open(graphFile.c_str(), std::ios::in);
 
   // check if file successfully opened
-  if ( !input.is_open() ) std::cout << "File is not opened" << std::endl;
+  if ( !inputGraph.is_open() ) std::cout << "File is not opened" << std::endl;
 
   // process first line
   std::string activation;
-  input >> m_nLayers >> m_nNodes >> activation >> 
-           m_numberOfInputs >> m_numberOfOutputs;
+  inputGraph >> m_nLayers >> m_nNodes >> activation >> 
+                m_numberOfInputs >> m_numberOfOutputs;
   std::cout << "Layers: "     << m_nLayers         << std::endl;
   std::cout << "Nodes: "      << m_nNodes          << std::endl;
   std::cout << "Activation: " << activation        << std::endl;
@@ -348,13 +396,13 @@ void PairNNManyBody::read_file(char *file)
 
   // skip a blank line
   std::string dummyLine;
-  std::getline(input, dummyLine);
+  std::getline(inputGraph, dummyLine);
 
   // process file
   // store all weights in a temporary vector
   // that will be reshaped later
   std::vector<arma::mat> weightsTemp;
-  for ( std::string line; std::getline(input, line); ) {
+  for ( std::string line; std::getline(inputGraph, line); ) {
     //std::cout << line << std::endl;
 
     if ( line.empty() )
@@ -376,7 +424,7 @@ void PairNNManyBody::read_file(char *file)
 
   // can put all biases in vector directly
   // no need for temporary vector
-  for ( std::string line; std::getline(input, line); ) {
+  for ( std::string line; std::getline(inputGraph, line); ) {
 
     // store all weights in vector
     double buffer;                  // have a buffer string
@@ -393,7 +441,7 @@ void PairNNManyBody::read_file(char *file)
   }
 
   // close file
-  input.close();
+  inputGraph.close();
 
   // write out all weights and biases
   /*for (const auto i : weightsTemp)
@@ -446,4 +494,45 @@ void PairNNManyBody::read_file(char *file)
 
   for (const auto i : m_biases)
     std::cout << i << std::endl;*/
+
+
+  // read parameters file
+  std::string parametersName = trainingDir + "/parameters.dat";
+
+  std::cout << "Parameters file: " << parametersName << std::endl;
+
+  std::ifstream inputParameters;
+  inputParameters.open(parametersName.c_str(), std::ios::in);
+
+  // check if file successfully opened
+  if ( !inputParameters.is_open() ) std::cout << "File is not opened" << std::endl;
+
+  inputParameters >> m_numberOfSymmFunc >> m_numberOfParameters;
+
+  std::cout << "Number of symmetry functions: " << m_numberOfSymmFunc << std::endl;
+  std::cout << "Number of parameters: " << m_numberOfParameters << std::endl;
+
+  // skip a blank line
+  std::getline(inputParameters, dummyLine);
+
+  m_parameters.set_size(m_numberOfSymmFunc, m_numberOfParameters);
+  int i = 0;
+  for ( std::string line; std::getline(inputParameters, line); ) {
+
+    if ( line.empty() )
+      break;
+
+    double buffer;                  // have a buffer string
+    std::stringstream ss(line);     // insert the string into a stream
+
+    // while there are new parameters on current line, add them to vector
+    int j = 0;
+    while ( ss >> buffer ) {
+        m_parameters(i,j) = buffer;
+        j++;
+    }
+    i++;
+  }
+  inputParameters.close();
+  exit(1);
 }
