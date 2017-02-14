@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pair_nn_manybody.h"
+#include "pair_nn_angular.h"
 #include "atom.h"
 #include "neighbor.h"
 #include "neigh_request.h"
@@ -41,12 +41,12 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairNNManyBody::PairNNManyBody(LAMMPS *lmp) : Pair(lmp)
+PairNNAngular::PairNNAngular(LAMMPS *lmp) : Pair(lmp)
 {
-  single_enable = 0; // We don't provide the force between two atoms only since it is manybody
+  single_enable = 0; // We don't provide the force between two atoms only since it is Angular
   restartinfo = 0;   // We don't write anything to restart file
   one_coeff = 1;     // only one coeff * * call
-  manybody_flag = 1; // Not only a pair style since energies are computed from more than one neighbor
+  Angular_flag = 1; // Not only a pair style since energies are computed from more than one neighbor
   cutoff = 10.0;      // Will be read from command line
 }
 
@@ -54,7 +54,7 @@ PairNNManyBody::PairNNManyBody(LAMMPS *lmp) : Pair(lmp)
    check if allocated, since class can be destructed when incomplete
 ------------------------------------------------------------------------- */
 
-PairNNManyBody::~PairNNManyBody()
+PairNNAngular::~PairNNAngular()
 {
   if (copymode) return;
   // If you allocate stuff you should delete and deallocate here. 
@@ -69,7 +69,7 @@ PairNNManyBody::~PairNNManyBody()
 
 /* ---------------------------------------------------------------------- */
 
-double PairNNManyBody::network(arma::mat inputVector) {
+double PairNNAngular::network(arma::mat inputVector) {
     // inputGraph vector is a 1xinputGraphs vector
 
     // linear activation for inputGraph layer
@@ -92,7 +92,7 @@ double PairNNManyBody::network(arma::mat inputVector) {
     return m_activations[m_nLayers+1](0,0);
 }
 
-arma::mat PairNNManyBody::backPropagation() {
+arma::mat PairNNAngular::backPropagation() {
   // find derivate of output w.r.t. intput, i.e. dE/dr_ij
   // need to find the "error" terms for all the nodes in all the layers
 
@@ -114,51 +114,51 @@ arma::mat PairNNManyBody::backPropagation() {
   return m_derivatives[0];
 }
 
-arma::mat PairNNManyBody::sigmoid(arma::mat matrix) {
+arma::mat PairNNAngular::sigmoid(arma::mat matrix) {
 
   return 1.0/(1 + arma::exp(-matrix));
 }
 
-arma::mat PairNNManyBody::sigmoidDerivative(arma::mat matrix) {
+arma::mat PairNNAngular::sigmoidDerivative(arma::mat matrix) {
 
   arma::mat sigmoidMatrix = sigmoid(matrix);
   return sigmoidMatrix % (1 - sigmoidMatrix);
 }
 
-arma::mat PairNNManyBody::Fc(arma::mat Rij, double Rc) {
+arma::mat PairNNAngular::Fc(arma::mat Rij, double Rc) {
 
   return 0.5*(arma::cos(m_pi*Rij/Rc) + 1);
 
 }
 
-arma::mat PairNNManyBody::dFcdR(arma::mat Rij, double Rc) {
+arma::mat PairNNAngular::dFcdR(arma::mat Rij, double Rc) {
 
   Rc = 1.0/Rc;
   return -(0.5*3.14*Rc) * arma::sin(m_pi*Rij*Rc); 
 }
 
-double PairNNManyBody::G1(arma::mat Rij, double Rc) {
+double PairNNAngular::G1(arma::mat Rij, double Rc) {
 
   return arma::accu( Fc(Rij, Rc) );
 }
 
-arma::mat PairNNManyBody::dG1dR(arma::mat Rij, double Rc) {
+arma::mat PairNNAngular::dG1dR(arma::mat Rij, double Rc) {
 
   return dFcdR(Rij, Rc);
 }
 
-double PairNNManyBody::G2(arma::mat Rij, double eta, double Rc, double Rs) {
+double PairNNAngular::G2(arma::mat Rij, double eta, double Rc, double Rs) {
 
   return arma::accu( arma::exp(-eta*(Rij - Rs)%(Rij - Rs)) % Fc(Rij, Rc) );
 }
 
-arma::mat PairNNManyBody::dG2dR(arma::mat Rij, double eta, double Rc, double Rs) {
+arma::mat PairNNAngular::dG2dR(arma::mat Rij, double eta, double Rc, double Rs) {
 
   return arma::exp(-eta*(Rij - Rs)%(Rij - Rs)) % 
          ( 2*eta*(Rs - Rij)%Fc(Rij, Rc) + dFcdR(Rij, Rc) );
 }
 
-double PairNNManyBody::G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk, 
+double PairNNAngular::G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk, 
                           arma::mat cosTheta, double eta, double Rc, 
                           double zeta, double lambda) {
 
@@ -169,7 +169,7 @@ double PairNNManyBody::G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk,
          Fc(Rjk, Rc) );
 }
 
-double PairNNManyBody::dG4dR(arma::mat Rij, arma::mat Rik, arma::mat Rjk, 
+double PairNNAngular::dG4dR(arma::mat Rij, arma::mat Rik, arma::mat Rjk, 
                              arma::mat cosTheta, double eta, double Rc, 
                              double zeta, double lambda) {
 
@@ -177,7 +177,7 @@ double PairNNManyBody::dG4dR(arma::mat Rij, arma::mat Rik, arma::mat Rjk,
   return 0;
 }
 
-void PairNNManyBody::compute(int eflag, int vflag)
+void PairNNAngular::compute(int eflag, int vflag)
 {
 
   double evdwl = 0.0;
@@ -294,7 +294,7 @@ void PairNNManyBody::compute(int eflag, int vflag)
 
 /* ---------------------------------------------------------------------- */
 
-void PairNNManyBody::allocate()
+void PairNNAngular::allocate()
 {
   allocated = 1;
   int n = atom->ntypes;
@@ -306,7 +306,7 @@ void PairNNManyBody::allocate()
    global settings
 ------------------------------------------------------------------------- */
 
-void PairNNManyBody::settings(int narg, char **arg)
+void PairNNAngular::settings(int narg, char **arg)
 {
   if (narg != 0) error->all(FLERR,"Illegal pair_style command");
 }
@@ -315,7 +315,7 @@ void PairNNManyBody::settings(int narg, char **arg)
    set coeffs for one or more type pairs
 ------------------------------------------------------------------------- */
 
-void PairNNManyBody::coeff(int narg, char **arg)
+void PairNNAngular::coeff(int narg, char **arg)
 {
   if (!allocated) allocate();
 
@@ -348,7 +348,7 @@ void PairNNManyBody::coeff(int narg, char **arg)
    init specific to this pair style
 ------------------------------------------------------------------------- */
 
-void PairNNManyBody::init_style()
+void PairNNAngular::init_style()
 {
   if (atom->tag_enable == 0)
     error->all(FLERR,"Pair style NN requires atom IDs");
@@ -365,7 +365,7 @@ void PairNNManyBody::init_style()
    init for one type pair i,j and corresponding j,i
 ------------------------------------------------------------------------- */
 
-double PairNNManyBody::init_one(int i, int j)
+double PairNNAngular::init_one(int i, int j)
 {
   if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
 
@@ -374,7 +374,7 @@ double PairNNManyBody::init_one(int i, int j)
 
 /* ---------------------------------------------------------------------- */
 
-void PairNNManyBody::read_file(char *file)
+void PairNNAngular::read_file(char *file)
 {
   // convert to string 
   std::string trainingDir(file);

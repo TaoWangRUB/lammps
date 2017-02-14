@@ -13,12 +13,12 @@
 
 #ifdef PAIR_CLASS
 
-PairStyle(nn/manybody,PairNNManyBody)
+PairStyle(nn/angular,PairNNAngular)
 
 #else
 
-#ifndef LMP_PAIR_NN_MANYBODY_H
-#define LMP_PAIR_NN_MANYBODY_H
+#ifndef LMP_PAIR_NN_ANGULAR_H
+#define LMP_PAIR_NN_ANGULAR_H
 
 #include "pair.h"
 
@@ -27,10 +27,10 @@ PairStyle(nn/manybody,PairNNManyBody)
 
 namespace LAMMPS_NS {
 
-class PairNNManyBody : public Pair {
+class PairNNAngular : public Pair {
  public:
-  PairNNManyBody(class LAMMPS *);
-  virtual ~PairNNManyBody();
+  PairNNAngular(class LAMMPS *);
+  virtual ~PairNNAngular();
   virtual void compute(int, int);
   virtual void settings(int, char **);
   void coeff(int, char **);
