@@ -42,12 +42,16 @@ class PairNNAngular : public Pair {
   arma::mat sigmoid(arma::mat matrix);
   arma::mat sigmoidDerivative(arma::mat matrix);
   arma::mat Fc(arma::mat Rij, double Rc);
+  double Fc(double Rij, double Rc);
   arma::mat dFcdR(arma::mat Rij, double Rc);
   double G1(arma::mat Rij, double Rc);
   arma::mat dG1dR(arma::mat Rij, double Rc);;
   double G2(arma::mat Rij, double eta, double Rc, double Rs);
+  double G2(double Rij, double eta, double Rc, double Rs);
   arma::mat dG2dR(arma::mat Rij, double eta, double Rc, double Rs);
   double G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
+            double eta, double Rc, double zeta, double lambda);
+  double G4(double Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
             double eta, double Rc, double zeta, double lambda);
   double dG4dR(arma::mat Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
                double eta, double Rc, double zeta, double lambda);
@@ -63,7 +67,7 @@ class PairNNAngular : public Pair {
   std::vector<arma::mat> m_preActivations     = std::vector<arma::mat>();
   std::vector<arma::mat> m_activations        = std::vector<arma::mat>();
   std::vector<arma::mat> m_derivatives        = std::vector<arma::mat>();
-  arma::mat m_parameters;
+  std::vector<std::vector<double>> m_parameters;
   int m_numberOfInputs;
   int m_numberOfOutputs;
   int m_numberOfSymmFunc;

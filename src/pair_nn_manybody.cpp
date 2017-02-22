@@ -216,12 +216,23 @@ void PairNNManyBody::compute(int eflag, int vflag)
     // collect all neighbours in arma matrix
     arma::mat Rij(1, 100);
     arma::mat dr(100, 3);
+    std::vector<int> tags(100);
     int neighbours = 0;
     for (int jj = 0; jj < jnum; jj++) {
 
       int j = jlist[jj];
       j &= NEIGHMASK;
       tagint jtag = tag[j];
+
+      if (itag > jtag) {
+        if ((itag+jtag) % 2 == 0) continue;
+      } else if (itag < jtag) {
+        if ((itag+jtag) % 2 == 1) continue;
+      } else {
+        if (x[j][2] < ztmp) continue;
+        if (x[j][2] == ztmp && x[j][1] < ytmp) continue;
+        if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp) continue;
+      }
 
       double delx = xtmp - x[j][0];
       double dely = ytmp - x[j][1];
@@ -236,6 +247,7 @@ void PairNNManyBody::compute(int eflag, int vflag)
       dr(neighbours,1) = dely;
       dr(neighbours,2) = delz;
       Rij(0,neighbours) = r;
+      tags[neighbours] = j;
       neighbours++;
     }
 
@@ -279,14 +291,15 @@ void PairNNManyBody::compute(int eflag, int vflag)
         dEdR += dEdG(0,s) * dG2dR(Rij, m_parameters(s,0), 
                             m_parameters(s,1), m_parameters(s,2));
 
-    std::cout << dEdR << std::endl;
-    exit(1);
     // find total force
     for (int l=0; l < neighbours; l++) {
-      double fpair = -dEdG(0,l) * dEdR(0,l) / Rij(0,l);
+      double fpair = -dEdR(0,l) / Rij(0,l);
       f[i][0] += fpair*dr(l,0);
       f[i][1] += fpair*dr(l,1);
       f[i][2] += fpair*dr(l,2);
+      f[tags[l]][0] -= fpair*dr(l,0);
+      f[tags[l]][1] -= fpair*dr(l,1);
+      f[tags[l]][2] -= fpair*dr(l,2);
     }
   }
   if (vflag_fdotr) virial_fdotr_compute();
