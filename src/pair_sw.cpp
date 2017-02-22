@@ -206,27 +206,62 @@ void PairSW::compute(int eflag, int vflag)
 
   if (vflag_fdotr) virial_fdotr_compute();
 
-  
   // EDITING: output neighbour lists and energies
   // after all computations are made
+  //outfile.open(filename.c_str(), std::ios::app);
+
+  // output distances to compute angular distribution
+  /*if (myStep == 0) {
+    randomAtom = inum/2;
+  }
+  
+  i = ilist[randomAtom];
+  double xi = x[i][0];
+  double yi = x[i][1];
+  double zi = x[i][2];
+
+  jlist = firstneigh[i];
+  jnum = numneigh[i];
+  for (jj = 0; jj < jnumm1; jj++) {
+    j = jlist[jj];
+    j &= NEIGHMASK;
+    jtag = tag[j];
+    jtype = map[type[j]];
+
+    delx = xi - x[j][0];
+    dely = yi - x[j][1];
+    delz = zi - x[j][2];
+
+    rsq = delx*delx + dely*dely + delz*delz;
+
+    ijparam = elem2param[itype][jtype][jtype];
+
+    if (rsq >= params[ijparam].cutsq) continue;
+
+    // save distance from central atom i to neighbour j
+    outfile << delx << " " << dely << " " << delz << " " << rsq << " ";
+  }
+  // store energy
+  outfile << std::endl;
+  outfile.close();*/
 
   // write neighbour lists every 100 steps
-  /*if ( !(myStep % 1000) ) {
+  if ( !(myStep % 100) ) {
+    std::cout << "Writing to file..." << std::endl;
+    outfile.open(filename.c_str(), std::ios::app);
 
     // Writing out a new file for each time step?
     // No point...
-    char buffer[20];
-    sprintf(buffer, "/neighbours%d.txt", myStep); 
-    std::string str(buffer);
-    filename = dirName + str;
-    //std::string filename = "Data/07.02-14.05.52/neighbours.txt";
-    outfile.open(filename.c_str(), std::ios::app);
-    //std::cout << "Writing to file..." << std::endl;
-    // trying to open file, check if file successfully opened
+    //char buffer[20];
+    //sprintf(buffer, "/neighbours%d.txt", myStep); 
+    //std::string str(buffer);
+    //filename = dirName + str;
 
     // sampling just a few configs for each time step
     // because the system is quite homogeneous
-    inum = 100;
+
+    // decide number of samples for each time step
+    inum = 50;
     for (ii = 0; ii < inum; ii++) {
   	  i = ilist[ii];
   	  double xi = x[i][0];
@@ -259,9 +294,8 @@ void PairSW::compute(int eflag, int vflag)
   		outfile << eatom[i] << std::endl;	
   	}
     outfile.close();
-    outfile.clear();
   }
-  myStep++;*/
+  myStep++;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -302,7 +336,7 @@ void PairSW::makeDirectory()
   command = "cp bulkSi.in " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not copy input script" << std::endl;
-  command = "cp ../../lammps/src/pair_sw.cpp" + dirName;
+  command = "cp ../../lammps/src/pair_sw.cpp " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not copy lammps script" << std::endl;
 
@@ -310,6 +344,7 @@ void PairSW::makeDirectory()
   outfile.open(filename.c_str());
   if ( !outfile.is_open() ) 
     std::cout << "File is not opened" << std::endl;
+  outfile.close();
 }
 
 /* ----------------------------------------------------------------------
@@ -686,10 +721,10 @@ void PairSW::threebody(Param *paramij, Param *paramik, Param *paramijk,
 
   facexp = expgsrainv1*expgsrainv2;
 
-  // facrad = sqrt(paramij->lambda_epsilon*paramik->lambda_epsilon) *
-  //          facexp*delcssq;
+   facrad = sqrt(paramij->lambda_epsilon*paramik->lambda_epsilon) *
+            facexp*delcssq;
 
-  facrad = paramijk->lambda_epsilon * facexp*delcssq;
+  //facrad = paramijk->lambda_epsilon * facexp*delcssq;
   frad1 = facrad*gsrainvsq1;
   frad2 = facrad*gsrainvsq2;
   facang = paramijk->lambda_epsilon2 * facexp*delcs;

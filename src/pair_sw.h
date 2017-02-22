@@ -64,6 +64,7 @@ class PairSW : public Pair {
   std::string dirName;
   std::ofstream outfile;
   int myStep = 0;
+  int randomAtom;
   void makeDirectory();
 
   virtual void allocate();

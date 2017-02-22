@@ -128,13 +128,11 @@ arma::mat PairNNAngular::sigmoidDerivative(arma::mat matrix) {
 arma::mat PairNNAngular::Fc(arma::mat Rij, double Rc) {
 
   return 0.5*(arma::cos(m_pi*Rij/Rc) + 1);
-
 }
 
 double PairNNAngular::Fc(double Rij, double Rc) {
 
   return 0.5*(cos(m_pi*Rij/Rc) + 1);
-
 }
 
 arma::mat PairNNAngular::dFcdR(arma::mat Rij, double Rc) {
