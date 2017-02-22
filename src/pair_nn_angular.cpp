@@ -46,7 +46,7 @@ PairNNAngular::PairNNAngular(LAMMPS *lmp) : Pair(lmp)
   single_enable = 0; // We don't provide the force between two atoms only since it is Angular
   restartinfo = 0;   // We don't write anything to restart file
   one_coeff = 1;     // only one coeff * * call
-  Angular_flag = 1; // Not only a pair style since energies are computed from more than one neighbor
+  manybody_flag = 1; // Not only a pair style since energies are computed from more than one neighbor
   cutoff = 10.0;      // Will be read from command line
 }
 
@@ -240,8 +240,8 @@ void PairNNAngular::compute(int eflag, int vflag)
     }
 
     // get rid of empty elements
-    Rij = Rij.head_cols(neighbours);
-    dr = dr.head_rows(neighbours);
+    //Rij = Rij.head_cols(neighbours);
+    //dr = dr.head_rows(neighbours);
 
     // transform with symmetry functions, loop over all the parameters
     arma::mat inputVector(1, m_numberOfSymmFunc);

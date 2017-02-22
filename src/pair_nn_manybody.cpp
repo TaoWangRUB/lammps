@@ -240,8 +240,8 @@ void PairNNManyBody::compute(int eflag, int vflag)
     }
 
     // get rid of empty elements
-    Rij = Rij.head_cols(neighbours);
-    dr = dr.head_rows(neighbours);
+    //Rij = Rij.head_cols(neighbours);
+    //dr = dr.head_rows(neighbours);
 
     // transform with symmetry functions, loop over all the parameters
     arma::mat inputVector(1, m_numberOfSymmFunc);
