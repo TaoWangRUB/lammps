@@ -35,6 +35,8 @@
 #include <fstream>
 
 using namespace LAMMPS_NS;
+using std::cout;
+using std::endl;
 
 //#define MAXLINE 1024
 //#define DELTA 4
@@ -157,7 +159,7 @@ double PairNNAngular::G2(arma::mat Rij, double eta, double Rc, double Rs) {
 }
 
 double PairNNAngular::G2(double Rij, double eta, double Rc, double Rs) {
-  std::cout << "G2" << std::endl;
+
   return exp(-eta*(Rij - Rs)*(Rij - Rs)) * Fc(Rij, Rc);
 }
 
@@ -180,11 +182,11 @@ double PairNNAngular::G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk,
 double PairNNAngular::G4(double Rij, arma::mat Rik, arma::mat Rjk, 
                         arma::mat cosTheta, double eta, double Rc, 
                         double zeta, double lambda) {
-  std::cout << "G4" << std::endl;
+
   return pow(2, 1-zeta) * 
          arma::accu( arma::pow(1 + lambda*cosTheta, zeta) % 
-         arma::exp( -eta*(Rij*Rij + Rik%Rik + Rjk%Rjk) ) *
-         Fc(Rij, Rc) * Fc(Rik, Rc) % Fc(Rjk, Rc) );
+         arma::exp( -eta*(Rij*Rij + Rik%Rik + Rjk%Rjk) ) %
+         (Fc(Rij, Rc) * Fc(Rik, Rc) % Fc(Rjk, Rc)) );
 }
 
 
@@ -234,21 +236,16 @@ void PairNNAngular::compute(int eflag, int vflag)
 
     // collect all neighbours in arma matrix
     arma::mat Rij(1, 30);
-    arma::mat Rik(1, 30);
     arma::mat drij(3, 30);
-    arma::mat drik(3, 30);
     std::vector<int> tagsj(30);
-    std::vector<int> tagsk(30);
-    int neighj = 0;
-    int neighk = 0;
     arma::mat inputVector(1, m_numberOfSymmFunc, arma::fill::zeros);
     for (int jj = 0; jj < jnum; jj++) {
-
+      int neighj = 0;
       int j = jlist[jj];
       j &= NEIGHMASK;
       tagint jtag = tag[j];
 
-      if (itag > jtag) {
+      /*if (itag > jtag) {
         if ((itag+jtag) % 2 == 0) continue;
       } else if (itag < jtag) {
         if ((itag+jtag) % 2 == 1) continue;
@@ -256,7 +253,7 @@ void PairNNAngular::compute(int eflag, int vflag)
         if (x[j][2] < ztmp) continue;
         if (x[j][2] == ztmp && x[j][1] < ytmp) continue;
         if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp) continue;
-      }
+      }*/
 
       double delxj = xtmp - x[j][0];
       double delyj = ytmp - x[j][1];
@@ -274,7 +271,16 @@ void PairNNAngular::compute(int eflag, int vflag)
       tagsj[neighj] = j;
       neighj++;
 
+      cout << j << " ";
+
+      arma::mat Rik(1, 20);
+      arma::mat drik(3, 20);
+      std::vector<int> tagsk(20);
+
       // three-body
+      // when jj = jnum-1, then k-loop will not run, thus Rik, drik,
+      // cosTheta and Rjk wil be empty vector
+      int neighk = 0;
       for (int kk = jj+1; kk < jnum; kk++) {
 
         int k = jlist[kk];
@@ -286,6 +292,7 @@ void PairNNAngular::compute(int eflag, int vflag)
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
         if (rsq2 >= cutoff*cutoff) continue;
+        cout << k << " ";
         
         double rik = sqrt(rsq2);
         drik(0, neighk) = delxk;
@@ -296,14 +303,25 @@ void PairNNAngular::compute(int eflag, int vflag)
         neighk++;
       }
 
-      // rij is now a single number, Rik is a matrix
-
       // get rid of empty elements
       Rij = Rij.head_cols(neighj);
       drij = drij.head_cols(neighj);
       Rik = Rik.head_cols(neighk);
       drik = drik.head_cols(neighk);
-     
+
+      // get theta and rjk
+      // drij: (3,1)
+      // rij: number, drik : (3,neighk)
+      // Rik: (1,neighk)
+      // drrik.row(0): (1,neighk) is all xik-coordinates and so on...
+      // cosTheta: (1, neighk)
+      arma::mat cosTheta = ( delxj*drik.row(0) + delyj*drik.row(1) + 
+                             delzj*drik.row(2) ) / (rij*Rik);
+
+      // Rik: (1,neighk), cosTheta: (1,neighk)
+      // --> Rjk: (0,neighk)
+      arma::mat Rjk = arma::sqrt(rij*rij + Rik%Rik  - 2*rij*Rik%cosTheta);
+
       std::cout << "neighj " << neighj << std::endl;
       std::cout << "neighk " << neighk << std::endl;
       std::cout << "Rij: " << arma::size(Rij) << std::endl;
@@ -315,18 +333,11 @@ void PairNNAngular::compute(int eflag, int vflag)
       std::cout << Rik << std::endl;
       std::cout << "drik: " << arma::size(drik) << std::endl;
       std::cout << drik << std::endl;
+      std::cout << "cosTheta: " << arma::size(cosTheta) << std::endl;
+      std::cout << cosTheta << std::endl;
+      std::cout << "Rjk: " << arma::size(Rjk) << std::endl;
+      std::cout << Rjk << std::endl;
 
-      // get theta and rjk
-      // rij: number, drik : (3,neighk)
-      // Rik: (0,neighk)
-      // drrik.row(0): (0,neighk) is all xik-coordinates and so on...
-      // cosTheta: (0, neighk)
-      arma::mat cosTheta = ( delxj*drik.row(0) + delyj*drik.row(1) + 
-                             delzj*drik.row(2) ) / (rij*Rik);
-
-      // Rik: (0,neighk), cosTheta: (0,neighk)
-      // --> Rjk: (0,neighk)
-      arma::mat Rjk = rij*rij + Rik%Rik  - 2*rij*Rik%cosTheta;
        
       // transform with symmetry functions, loop over all the parameters
       for (int s=0; s < m_numberOfSymmFunc; s++) {
@@ -338,8 +349,9 @@ void PairNNAngular::compute(int eflag, int vflag)
                                  m_parameters[s][0], m_parameters[s][1], 
                                  m_parameters[s][2], m_parameters[s][3]);
       }
-
     }
+    std::cout << inputVector << std::endl;  
+    exit(1);
 
     /*std::ofstream outfile;
     outfile.open("exampleInputVector.dat", std::ios::trunc);

@@ -40,7 +40,7 @@ using namespace LAMMPS_NS;
 #define MAXLINE 1024
 #define DELTA 4
 
-/* ---------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------------- */
 
 PairSW::PairSW(LAMMPS *lmp) : Pair(lmp)
 {
@@ -261,12 +261,13 @@ void PairSW::compute(int eflag, int vflag)
     // because the system is quite homogeneous
 
     // decide number of samples for each time step
-    inum = 50;
+    //inum = 50;
     for (ii = 0; ii < inum; ii++) {
   	  i = ilist[ii];
   	  double xi = x[i][0];
   	  double yi = x[i][1];
   	  double zi = x[i][2];
+      double r2 = sqrt(xi*xi + yi*yi + zi*zi);
 
   	  jlist = firstneigh[i];
   	  jnum = numneigh[i];
@@ -281,6 +282,7 @@ void PairSW::compute(int eflag, int vflag)
   	    delz = zi - x[j][2];
 
   	    rsq = delx*delx + dely*dely + delz*delz;
+        
 
   	    ijparam = elem2param[itype][jtype][jtype];
 
@@ -288,9 +290,10 @@ void PairSW::compute(int eflag, int vflag)
 
         // save positions of neighbour j relative to position
         // of central atom i for use in training
-  	    outfile << delx << " " << dely << " " << delz << " " << rsq << " ";
+  	    //outfile << x[j][0] << " " << x[j][1] << " " << x[j][2] << " " << r2 << " ";
   	  }
       // store energy
+      outfile << x[i][0] << " " << x[i][1] << " " << x[i][2] << " " << r2 << " ";
   		outfile << eatom[i] << std::endl;	
   	}
     outfile.close();
@@ -721,10 +724,10 @@ void PairSW::threebody(Param *paramij, Param *paramik, Param *paramijk,
 
   facexp = expgsrainv1*expgsrainv2;
 
-   facrad = sqrt(paramij->lambda_epsilon*paramik->lambda_epsilon) *
-            facexp*delcssq;
+  // facrad = sqrt(paramij->lambda_epsilon*paramik->lambda_epsilon) *
+  //          facexp*delcssq;
 
-  //facrad = paramijk->lambda_epsilon * facexp*delcssq;
+  facrad = paramijk->lambda_epsilon * facexp*delcssq;
   frad1 = facrad*gsrainvsq1;
   frad2 = facrad*gsrainvsq2;
   facang = paramijk->lambda_epsilon2 * facexp*delcs;
