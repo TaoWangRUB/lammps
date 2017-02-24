@@ -33,6 +33,7 @@
 
 #include <iostream>     // testing
 #include <time.h>       // time_t, struct tm, time, localtime, strftime
+#include <iomanip>
 
 
 using namespace LAMMPS_NS;
@@ -246,7 +247,7 @@ void PairSW::compute(int eflag, int vflag)
   outfile.close();*/
 
   // write neighbour lists every 100 steps
-  if ( !(myStep % 100) ) {
+  if ( !(myStep % 10) ) {
     std::cout << "Writing to file..." << std::endl;
     outfile.open(filename.c_str(), std::ios::app);
 
@@ -261,13 +262,13 @@ void PairSW::compute(int eflag, int vflag)
     // because the system is quite homogeneous
 
     // decide number of samples for each time step
-    //inum = 50;
-    for (ii = 0; ii < inum; ii++) {
+    inum = 900;
+    for (ii = inum-1; ii < inum; ii++) {
   	  i = ilist[ii];
   	  double xi = x[i][0];
   	  double yi = x[i][1];
   	  double zi = x[i][2];
-      double r2 = sqrt(xi*xi + yi*yi + zi*zi);
+      //double r2 = sqrt(xi*xi + yi*yi + zi*zi);
 
   	  jlist = firstneigh[i];
   	  jnum = numneigh[i];
@@ -290,11 +291,12 @@ void PairSW::compute(int eflag, int vflag)
 
         // save positions of neighbour j relative to position
         // of central atom i for use in training
-  	    //outfile << x[j][0] << " " << x[j][1] << " " << x[j][2] << " " << r2 << " ";
+  	    outfile << std::setprecision(10) << delx << " " << dely << " " <<
+                   delz << " " << rsq << " ";
   	  }
       // store energy
-      outfile << x[i][0] << " " << x[i][1] << " " << x[i][2] << " " << r2 << " ";
-  		outfile << eatom[i] << std::endl;	
+      //outfile << x[i][0] << " " << x[i][1] << " " << x[i][2] << " " << r2 << " ";
+  		outfile << std::setprecision(10) << eatom[i] << std::endl;	
   	}
     outfile.close();
   }
