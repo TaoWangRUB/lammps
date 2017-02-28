@@ -194,8 +194,10 @@ double PairNNAngular::dG4dR(arma::mat Rij, arma::mat Rik, arma::mat Rjk,
                             arma::mat cosTheta, double eta, double Rc, 
                             double zeta, double lambda) {
 
-  // to be implemented
-  return 0;
+  return arma::exp( -eta*(Rij%Rij + Rik%Rik + Rjk%Rjk) ) %
+         arma::pow(1 + lambda*cosTheta, zeta) % 
+         ( dFcdR(Rij, Rc) - 2*eta*Rij %
+           Fc(Rij, Rc) % Fc(Rik, Rc) % Fc(Rjk, Rc) );
 }
 
 void PairNNAngular::compute(int eflag, int vflag)
@@ -238,9 +240,13 @@ void PairNNAngular::compute(int eflag, int vflag)
     arma::mat Rij(1, 30);
     arma::mat drij(3, 30);
     std::vector<int> tagsj(30);
+    std::vector<arma::mat> Riks(jnum-1);
+    std::vector<arma::mat> cosThetas(jnum-1);
+    std::vector<arma::mat> Rjks(jnum-1);
     arma::mat inputVector(1, m_numberOfSymmFunc, arma::fill::zeros);
+    int neighbours = 0;
     for (int jj = 0; jj < jnum; jj++) {
-      int neighj = 0;
+
       int j = jlist[jj];
       j &= NEIGHMASK;
       tagint jtag = tag[j];
@@ -264,14 +270,12 @@ void PairNNAngular::compute(int eflag, int vflag)
 
       // store coordinates of neighbour
       double rij = sqrt(rsq1);
-      drij(0, neighj) = delxj;
-      drij(1, neighj) = delyj;
-      drij(2, neighj) = delzj;
-      Rij(0, neighj) = rij;
-      tagsj[neighj] = j;
-      neighj++;
-
-      cout << j << " ";
+      drij(0, neighbours) = delxj;
+      drij(1, neighbours) = delyj;
+      drij(2, neighbours) = delzj;
+      Rij(0, neighbours) = rij;
+      tagsj[neighbours] = j;
+      neighbours++;
 
       arma::mat Rik(1, 20);
       arma::mat drik(3, 20);
@@ -292,7 +296,6 @@ void PairNNAngular::compute(int eflag, int vflag)
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
         if (rsq2 >= cutoff*cutoff) continue;
-        cout << k << " ";
         
         double rik = sqrt(rsq2);
         drik(0, neighk) = delxk;
@@ -304,8 +307,6 @@ void PairNNAngular::compute(int eflag, int vflag)
       }
 
       // get rid of empty elements
-      Rij = Rij.head_cols(neighj);
-      drij = drij.head_cols(neighj);
       Rik = Rik.head_cols(neighk);
       drik = drik.head_cols(neighk);
 
@@ -322,7 +323,11 @@ void PairNNAngular::compute(int eflag, int vflag)
       // --> Rjk: (0,neighk)
       arma::mat Rjk = arma::sqrt(rij*rij + Rik%Rik  - 2*rij*Rik%cosTheta);
 
-      std::cout << "neighj " << neighj << std::endl;
+      Riks[neighbours-1]      = Rik;
+      cosThetas[neighbours-1] = cosTheta;
+      Rjks[neighbours-1]      = Rjk;
+
+      /*std::cout << "neighbours " << neighbours << std::endl;
       std::cout << "neighk " << neighk << std::endl;
       std::cout << "Rij: " << arma::size(Rij) << std::endl;
       std::cout << Rij << std::endl;
@@ -336,8 +341,7 @@ void PairNNAngular::compute(int eflag, int vflag)
       std::cout << "cosTheta: " << arma::size(cosTheta) << std::endl;
       std::cout << cosTheta << std::endl;
       std::cout << "Rjk: " << arma::size(Rjk) << std::endl;
-      std::cout << Rjk << std::endl;
-
+      std::cout << Rjk << std::endl;*/
        
       // transform with symmetry functions, loop over all the parameters
       for (int s=0; s < m_numberOfSymmFunc; s++) {
@@ -350,8 +354,9 @@ void PairNNAngular::compute(int eflag, int vflag)
                                  m_parameters[s][2], m_parameters[s][3]);
       }
     }
-    std::cout << inputVector << std::endl;  
-    exit(1);
+
+    Rij = Rij.head_cols(neighbours);
+    drij = drij.head_cols(neighbours);
 
     /*std::ofstream outfile;
     outfile.open("exampleInputVector.dat", std::ios::trunc);
@@ -363,6 +368,7 @@ void PairNNAngular::compute(int eflag, int vflag)
 
     // apply NN to get energy
     evdwl = network(inputVector);
+
     eng_vdwl += evdwl;
 
     // backpropagate to obtain gradient of NN
@@ -370,14 +376,20 @@ void PairNNAngular::compute(int eflag, int vflag)
     
     // calculate forces by differentiating the symmetry functions
     // UNTRUE(?): dEdR(j) will be the force contribution from atom j on atom i
-    /*arma::mat dEdR(1,neighbours, arma::fill::zeros);
-    if (m_numberOfParameters == 1) 
-      for (int s=0; s < m_numberOfSymmFunc; s++) 
-        dEdR += dEdG(0,s) * dG1dR(Rij, m_parameters[s,0]);
-    else
-      for (int s=0; s < m_numberOfSymmFunc; s++)
-        dEdR += dEdG(0,s) * dG2dR(Rij, m_parameters[s,0], 
-                            m_parameters(s,1), m_parameters(s,2));
+    arma::mat dEdR(1,neighbours, arma::fill::zeros);
+    for (int s=0; s < m_numberOfSymmFunc; s++) 
+      if ( m_parameters[s].size() == 3) 
+        dEdR += dEdG(0,s) * dG2dR(Rij, m_parameters[s][0],
+                                  m_parameters[s][1], m_parameters[s][2]);
+      else {
+        // TODO: Do I need to loop over all triplets here?
+        // If that is the case, I need to store all Rjks etc...
+        for (int l=0; l < jnum-1; l++) {
+          dEdR += dEdG(0,s) * dG4dR(Rij, Rik[l], Rjk[l], cosTheta[l],
+                                    m_parameters[s][0], m_parameters[s][1], 
+                                    m_parameters[s][2], m_parameters[s][3]);     
+        }
+      }
 
     // find total force
     for (int l=0; l < neighbours; l++) {
@@ -398,7 +410,7 @@ void PairNNAngular::compute(int eflag, int vflag)
     f[j][2] += fj[2];
     f[k][0] += fk[0];
     f[k][1] += fk[1];
-    f[k][2] += fk[2];*/
+    f[k][2] += fk[2];
   }
   if (vflag_fdotr) virial_fdotr_compute();
 }
