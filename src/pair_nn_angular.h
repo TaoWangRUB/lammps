@@ -53,7 +53,7 @@ class PairNNAngular : public Pair {
             double eta, double Rc, double zeta, double lambda);
   double G4(double Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
             double eta, double Rc, double zeta, double lambda);
-  double dG4dR(arma::mat Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
+  double dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
                double eta, double Rc, double zeta, double lambda);
 
  protected:
