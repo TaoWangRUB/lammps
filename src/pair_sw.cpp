@@ -262,13 +262,16 @@ void PairSW::compute(int eflag, int vflag)
     // because the system is quite homogeneous
 
     // decide number of samples for each time step
-    inum = 900;
-    for (ii = inum-1; ii < inum; ii++) {
+    int chosenAtom = 899;//inum/2;
+    for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
   	  i = ilist[ii];
   	  double xi = x[i][0];
   	  double yi = x[i][1];
   	  double zi = x[i][2];
-      //double r2 = sqrt(xi*xi + yi*yi + zi*zi);
+
+      if (myStep == 0)
+        std::cout << "Chosen atom: " << i << " " << xi << " " << yi << " " 
+                  << zi << " " << std::endl;
 
   	  jlist = firstneigh[i];
   	  jnum = numneigh[i];
@@ -295,7 +298,6 @@ void PairSW::compute(int eflag, int vflag)
                    delz << " " << rsq << " ";
   	  }
       // store energy
-      //outfile << x[i][0] << " " << x[i][1] << " " << x[i][2] << " " << r2 << " ";
   		outfile << std::setprecision(10) << eatom[i] << std::endl;	
   	}
     outfile.close();

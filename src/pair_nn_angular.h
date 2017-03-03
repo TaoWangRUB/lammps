@@ -44,6 +44,7 @@ class PairNNAngular : public Pair {
   arma::mat Fc(arma::mat Rij, double Rc);
   double Fc(double Rij, double Rc);
   arma::mat dFcdR(arma::mat Rij, double Rc);
+  double dFcdR(double Rij, double Rc);
   double G1(arma::mat Rij, double Rc);
   arma::mat dG1dR(arma::mat Rij, double Rc);;
   double G2(arma::mat Rij, double eta, double Rc, double Rs);
@@ -53,7 +54,7 @@ class PairNNAngular : public Pair {
             double eta, double Rc, double zeta, double lambda);
   double G4(double Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
             double eta, double Rc, double zeta, double lambda);
-  double dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
+  arma::mat dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
                double eta, double Rc, double zeta, double lambda);
 
  protected:

@@ -143,6 +143,11 @@ arma::mat PairNNAngular::dFcdR(arma::mat Rij, double Rc) {
   return -(0.5*3.14*Rc) * arma::sin(m_pi*Rij*Rc); 
 }
 
+double PairNNAngular::dFcdR(double Rij, double Rc) {
+  Rc = 1.0/Rc;
+  return -(0.5*3.14*Rc) * sin(m_pi*Rij*Rc);
+}
+
 double PairNNAngular::G1(arma::mat Rij, double Rc) {
 
   return arma::accu( Fc(Rij, Rc) );
@@ -190,14 +195,14 @@ double PairNNAngular::G4(double Rij, arma::mat Rik, arma::mat Rjk,
 }
 
 
-double PairNNAngular::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, 
+arma::mat PairNNAngular::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, 
                             arma::mat cosTheta, double eta, double Rc, 
                             double zeta, double lambda) {
 
   return arma::exp( -eta*(Rij*Rij + Rik%Rik + Rjk%Rjk) ) %
          arma::pow(1 + lambda*cosTheta, zeta) % 
          ( dFcdR(Rij, Rc) - 2*eta*Rij *
-           Fc(Rij, Rc) * Fc(Rik, Rc) % Fc(Rjk, Rc) );
+           Fc(Rij, Rc) * Fc(Rik, Rc) % Fc(Rjk, Rc) );  
 }
 
 void PairNNAngular::compute(int eflag, int vflag)
@@ -377,7 +382,7 @@ void PairNNAngular::compute(int eflag, int vflag)
     
     // calculate forces by differentiating the symmetry functions
     // UNTRUE(?): dEdR(j) will be the force contribution from atom j on atom i
-    arma::mat dEdR(1,neighbours, arma::fill::zeros);
+    /*arma::mat dEdR(1,neighbours, arma::fill::zeros);
     for (int s=0; s < m_numberOfSymmFunc; s++) 
       if ( m_parameters[s].size() == 3) 
         // G2: one atomic pair environment per symmetry function
@@ -395,12 +400,12 @@ void PairNNAngular::compute(int eflag, int vflag)
     // find total force
     for (int l=0; l < neighbours; l++) {
       double fpair = -dEdR(0,l) / Rij(0,l);
-      f[i][0] += fpair*dr(l,0);
-      f[i][1] += fpair*dr(l,1);
-      f[i][2] += fpair*dr(l,2);
-      f[tags[l]][0] -= fpair*dr(l,0);
-      f[tags[l]][1] -= fpair*dr(l,1);
-      f[tags[l]][2] -= fpair*dr(l,2);
+      f[i][0] += fpair*drij(l,0);
+      f[i][1] += fpair*drij(l,1);
+      f[i][2] += fpair*drij(l,2);
+      f[tagsj[l]][0] -= fpair*drij(l,0);
+      f[tagsj[l]][1] -= fpair*drij(l,1);
+      f[tagsj[l]][2] -= fpair*drij(l,2);
       for (int m=0; m < neighbours-1; m++) {
         double ftriplet = -dEdR(0,l) / Rik(0,l);
         f[]
@@ -415,7 +420,7 @@ void PairNNAngular::compute(int eflag, int vflag)
     f[j][2] += fj[2];
     f[k][0] += fk[0];
     f[k][1] += fk[1];
-    f[k][2] += fk[2];
+    f[k][2] += fk[2];*/
   }
   if (vflag_fdotr) virial_fdotr_compute();
 }
