@@ -134,7 +134,7 @@ arma::mat PairNNManyBody::Fc(arma::mat Rij, double Rc) {
 arma::mat PairNNManyBody::dFcdR(arma::mat Rij, double Rc) {
 
   Rc = 1.0/Rc;
-  return -(0.5*3.14*Rc) * arma::sin(m_pi*Rij*Rc); 
+  return -(0.5*m_pi*Rc) * arma::sin(m_pi*Rij*Rc); 
 }
 
 double PairNNManyBody::G1(arma::mat Rij, double Rc) {
@@ -158,24 +158,6 @@ arma::mat PairNNManyBody::dG2dR(arma::mat Rij, double eta, double Rc, double Rs)
          ( 2*eta*(Rs - Rij)%Fc(Rij, Rc) + dFcdR(Rij, Rc) );
 }
 
-double PairNNManyBody::G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk, 
-                          arma::mat cosTheta, double eta, double Rc, 
-                          double zeta, double lambda) {
-
-  return pow(2, 1-zeta) * 
-         arma::accu( pow(1 + lambda*cosTheta, zeta) % 
-         arma::exp( -eta*(Rij%Rij + Rik%Rik + Rjk%Rjk) ) % 
-         Fc(Rij, Rc) % Fc(Rik, Rc) % 
-         Fc(Rjk, Rc) );
-}
-
-double PairNNManyBody::dG4dR(arma::mat Rij, arma::mat Rik, arma::mat Rjk, 
-                             arma::mat cosTheta, double eta, double Rc, 
-                             double zeta, double lambda) {
-
-  // to be implemented
-  return 0;
-}
 
 void PairNNManyBody::compute(int eflag, int vflag)
 {

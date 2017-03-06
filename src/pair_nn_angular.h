@@ -54,9 +54,12 @@ class PairNNAngular : public Pair {
             double eta, double Rc, double zeta, double lambda);
   double G4(double Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
             double eta, double Rc, double zeta, double lambda);
-  arma::mat dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
-               double eta, double Rc, double zeta, double lambda);
-
+  void dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, 
+             arma::mat cosTheta, double eta, double Rc, 
+             double zeta, double lambda,
+             arma::mat &dEdR3, double *fj3,
+             arma::mat drij, arma::mat drik);
+ 
  protected:
   double cutoff;
 
