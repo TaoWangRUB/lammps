@@ -194,7 +194,7 @@ double PairNNAngular::G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk,
   return pow(2, 1-zeta) * 
          arma::accu( arma::pow(1 + lambda*cosTheta, zeta) % 
          arma::exp( -eta*(Rij%Rij + Rik%Rik + Rjk%Rjk) ) % 
-         Fc(Rij, Rc, false) % Fc(Rik, Rc, false) % Fc(Rjk, Rc, true) );
+         Fc(Rij, Rc, false) % Fc(Rik, Rc, false) % Fc(Rjk, Rc, false) );
 }
 
 double PairNNAngular::G4(double Rij, arma::mat Rik, arma::mat Rjk, 
@@ -204,7 +204,7 @@ double PairNNAngular::G4(double Rij, arma::mat Rik, arma::mat Rjk,
   return pow(2, 1-zeta) * 
          arma::accu( arma::pow(1 + lambda*cosTheta, zeta) % 
          arma::exp( -eta*(Rij*Rij + Rik%Rik + Rjk%Rjk) ) %
-         (Fc(Rij, Rc) * Fc(Rik, Rc, false) % Fc(Rjk, Rc, true)) );
+         (Fc(Rij, Rc) * Fc(Rik, Rc, false) % Fc(Rjk, Rc, false)) );
 }
 
 
@@ -221,7 +221,7 @@ void PairNNAngular::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk,
 
   double FcRij = Fc(Rij, Rc);
   arma::mat FcRik = Fc(Rik, Rc, false);
-  arma::mat FcRjk = Fc(Rjk, Rc, true);
+  arma::mat FcRjk = Fc(Rjk, Rc, false);
   arma::mat F3 = FcRij * FcRik % FcRjk;
 
   arma::mat dF1dcosTheta = lambda*zeta*powCosThetaM1;
@@ -293,8 +293,7 @@ void PairNNAngular::compute(int eflag, int vflag)
     int numshort = 0;
 
     // collect all neighbours in arma matrix, jnum max
-    arma::mat Rij2(1, jnum);        // all pairs (i,j)
-    arma::mat Rij3(1, jnum);
+    arma::mat Rij(1, jnum);        // all pairs (i,j)
     arma::mat drij(3, jnum);       // (dxij, dyij, dzyij)   
     std::vector<int> tagsj(jnum);  // indicies of j-atoms
 
@@ -313,7 +312,7 @@ void PairNNAngular::compute(int eflag, int vflag)
     // keep track of how many atoms below r2 and N3L
     int neighbours = 0; 
 
-    // collect all pairs and triplets
+    // collect all pairs
     for (int jj = 0; jj < jnum; jj++) {
 
       int j = jlist[jj];
@@ -340,21 +339,64 @@ void PairNNAngular::compute(int eflag, int vflag)
 
       // store pair coordinates
       double rij = sqrt(rsq1);
-      if (!rij>0) {cout << "rij: " << rij << endl; exit(1);}
       drij(0, neighbours) = delxj;
       drij(1, neighbours) = delyj;
       drij(2, neighbours) = delzj;
       Rij(0, neighbours) = rij;
       tagsj[neighbours] = j;
+      neighbours++;
+    }
+
+    // skip curent atom i if no neighbours
+    // this can happen if few neighbours and all of them 
+    // are excluded because of the N3L test
+    if (neighbours == 0) continue;
+
+    // get rid of empty elements
+    Rij = Rij.head_cols(neighbours);
+    drij = drij.head_cols(neighbours);
+
+    // two-body
+    for (int s=0; s < m_numberOfSymmFunc; s++)
+      if ( m_parameters[s].size() == 3 ) 
+        inputVector(0,s) += G2(Rij, m_parameters[s][0],
+                               m_parameters[s][1], m_parameters[s][2]);
+
+    // one less triplet j
+    int jnumm1 = jnum-1;
+
+    arma::mat Rij3(1, jnumm1);        // all pairs (i,j)
+    arma::mat drij3(3, jnumm1);       // (dxij, dyij, dzyij)   
+    std::vector<int> tagsj3(jnumm1);  // indicies of j-atoms
+
+    int neighbours3 = 0;
+
+    // collect all triplets
+    for (int jj = 0; jj < jnumm1; jj++) {
+      int j = jlist[jj];
+      j &= NEIGHMASK;
+      tagint jtag = tag[j];
+
+      double delxj = xtmp - x[j][0];
+      double delyj = ytmp - x[j][1];
+      double delzj = ztmp - x[j][2];
+      double rsq1 = delxj*delxj + delyj*delyj + delzj*delzj;
+
+      if (rsq1 >= cutoff*cutoff) continue;
+
+      // store pair coordinates
+      double rij = sqrt(rsq1);
+      drij3(0, neighbours3) = delxj;
+      drij3(1, neighbours3) = delyj;
+      drij3(2, neighbours3) = delzj;
+      Rij3(0, neighbours3) = rij;
+      tagsj3[neighbours3] = j;
 
       // collect triplets for this (i,j)
       arma::mat Rik(1, 20);
       arma::mat drik(3, 20);
 
       // three-body
-      // when jj = jnum-1, then k-loop will not run, thus Rik, drik,
-      // cosTheta and Rjk wil be empty vector. 
-      // G4/G5 will then be zero, as it should
       int neighk = 0;
       for (int kk = jj+1; kk < jnum; kk++) {
 
@@ -370,48 +412,33 @@ void PairNNAngular::compute(int eflag, int vflag)
         
         // store triplets for this (i,j)
         double rik = sqrt(rsq2);
-        if (!rik>0) {
-          cout << "rik: " << rik << endl;
-          cout << "rsq2 " << rsq2 << endl;
-        }
         drik(0, neighk) = delxk;
         drik(1, neighk) = delyk;
         drik(2, neighk) = delzk;
         Rik(0,neighk) = rik;
-
-        // need to store all k's for each pair (i,j)
-        // i.e. store all triplets 
-        tagsk[neighbours].push_back(k);
+        tagsk[neighbours3].push_back(k);
         neighk++;
       }
+
+      // skip if no triplets left
+      if (neighk == 0) continue;
 
       // get rid of empty elements
       Rik = Rik.head_cols(neighk);
       drik = drik.head_cols(neighk);
 
-      // skip if number of triplets is zero
-      if (neighk == 0) continue;
-
-      // get theta and rjk
-      // drij: (3,1)
-      // rij: number, drik : (3,neighk)
-      // Rik: (1,neighk)
-      // drrik.row(0): (1,neighk) is all xik-coordinates and so on...
-      // cosTheta: (1, neighk)
+      // calculate quantites needed in G4
       arma::mat cosTheta = ( delxj*drik.row(0) + delyj*drik.row(1) + 
                              delzj*drik.row(2) ) / (rij*Rik);
 
-      // Rik: (1,neighk), cosTheta: (1,neighk)
-      // --> Rjk: (0,neighk)
       arma::mat Rjk = arma::sqrt(rij*rij + Rik%Rik  - 2*rij*Rik%cosTheta);
 
-      // the last element will be empty matrices
       // store all k's for curren (i,j) to compute forces later
-      Riks[neighbours]      = Rik;
-      driks[neighbours]     = drik;
-      cosThetas[neighbours] = cosTheta;
-      Rjks[neighbours]      = Rjk;
-      neighbours++;
+      Riks[neighbours3]      = Rik;
+      driks[neighbours3]     = drik;
+      cosThetas[neighbours3] = cosTheta;
+      Rjks[neighbours3]      = Rjk;
+      neighbours3++;
       
       /*std::cout << "neighk " << neighk << std::endl;
       std::cout << "Rik: " << arma::size(Rik) << std::endl;
@@ -428,10 +455,7 @@ void PairNNAngular::compute(int eflag, int vflag)
       // G4: evaluated once for each pair (i,j), but rik etc. are vectors
       // that contain all ks for each pair (i,j)
       for (int s=0; s < m_numberOfSymmFunc; s++) {
-        if ( m_parameters[s].size() == 3) 
-          inputVector(0,s) += G2(rij, m_parameters[s][0],
-                                 m_parameters[s][1], m_parameters[s][2]);
-        else
+        if ( m_parameters[s].size() == 4) 
           inputVector(0,s) += G4(rij, Rik, Rjk, cosTheta,
                                  m_parameters[s][0], m_parameters[s][1], 
                                  m_parameters[s][2], m_parameters[s][3]);
@@ -439,13 +463,8 @@ void PairNNAngular::compute(int eflag, int vflag)
     }
 
     // get rid of empty elements
-    Rij = Rij.head_cols(neighbours);
-    drij = drij.head_cols(neighbours);
-
-    // skip curent atom i if no neighbours
-    // this can happen if few neighbours and all of them 
-    // are excluded because of the N3L test
-    if (neighbours == 0) continue;
+    Rij3 = Rij3.head_cols(neighbours3);
+    drij3 = drij3.head_cols(neighbours3);
 
     /*std::cout << "neighbours " << neighbours << std::endl;
     std::cout << "Rij: " << arma::size(Rij) << std::endl;
@@ -475,7 +494,7 @@ void PairNNAngular::compute(int eflag, int vflag)
     for (int s=0; s < m_numberOfSymmFunc; s++) {
       
       // G2: one atomic pair environment per symmetry function
-      if ( m_parameters[s].size() == 3) {
+      if ( m_parameters[s].size() == 3 ) {
 
         arma::mat dG2(1,neighbours); // derivative of G2
         double fj2[3];               // pair force
@@ -504,7 +523,7 @@ void PairNNAngular::compute(int eflag, int vflag)
       // G4/G5: neighbours-1 triplet environments per symmetry function
       else {
         
-        for (int l=0; l < neighbours-1; l++) {
+        for (int l=0; l < neighbours3; l++) {
 
           int numberOfTriplets = arma::size(Riks[l])(1);
 
@@ -519,10 +538,10 @@ void PairNNAngular::compute(int eflag, int vflag)
           // Riks[l], Rjks[l], cosThetas[l] : (1,numberOfTriplets)
           // dEdR3, driks[l]: (3, numberOfTriplets)
           // drij.col(l): (1,3)
-          dG4dR(Rij(0,l), Riks[l], Rjks[l], cosThetas[l],
+          dG4dR(Rij3(0,l), Riks[l], Rjks[l], cosThetas[l],
                 m_parameters[s][0], m_parameters[s][1], 
                 m_parameters[s][2], m_parameters[s][3], 
-                dEdR3, fj3, drij.col(l), driks[l]); 
+                dEdR3, fj3, drij3.col(l), driks[l]); 
 
           // N3L: add 3-body forces for i and k
           for (int m=0; m < numberOfTriplets; m++) {
@@ -537,9 +556,9 @@ void PairNNAngular::compute(int eflag, int vflag)
           f[i][2] += dEdG(0,s) * ( fj3[2] + arma::accu(dEdR3.row(2)) );
 
           // N3L: add 3-body force for j. fj3 is sum of all triplet forces
-          f[tagsj[l]][0] -= dEdG(0,s) * fj3[0];
-          f[tagsj[l]][1] -= dEdG(0,s) * fj3[1];
-          f[tagsj[l]][2] -= dEdG(0,s) * fj3[2];
+          f[tagsj3[l]][0] -= dEdG(0,s) * fj3[0];
+          f[tagsj3[l]][1] -= dEdG(0,s) * fj3[1];
+          f[tagsj3[l]][2] -= dEdG(0,s) * fj3[2];
         }
       }
     }
