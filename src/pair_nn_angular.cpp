@@ -31,6 +31,7 @@
 #include "neigh_list.h"
 #include "memory.h"
 #include "error.h"
+#include <fenv.h>
 
 #include <fstream>
 
@@ -127,14 +128,24 @@ arma::mat PairNNAngular::sigmoidDerivative(arma::mat matrix) {
   return sigmoidMatrix % (1 - sigmoidMatrix);
 }
 
-arma::mat PairNNAngular::Fc(arma::mat Rij, double Rc) {
+arma::mat PairNNAngular::Fc(arma::mat R, double Rc, bool cut) {
 
-  return 0.5*(arma::cos(m_pi*Rij/Rc) + 1);
+  if (cut)
+    for (int i=0; i < arma::size(R)(1); i++) 
+      if (R(0,i) > Rc)
+        R(0,i) = 0;
+
+  
+  return 0.5*(arma::cos(m_pi*R/Rc) + 1);
 }
 
-double PairNNAngular::Fc(double Rij, double Rc) {
+double PairNNAngular::Fc(double R, double Rc) {
 
-  return 0.5*(cos(m_pi*Rij/Rc) + 1);
+  /*if (Rij < Rc)
+    return 0.5*(cos(m_pi*Rij/Rc) + 1);
+  else
+    return 0;*/
+  return 0.5*(cos(m_pi*R/Rc) + 1);
 }
 
 arma::mat PairNNAngular::dFcdR(arma::mat Rij, double Rc) {
@@ -151,7 +162,7 @@ double PairNNAngular::dFcdR(double Rij, double Rc) {
 
 double PairNNAngular::G1(arma::mat Rij, double Rc) {
 
-  return arma::accu( Fc(Rij, Rc) );
+  return arma::accu( Fc(Rij, Rc, false) );
 }
 
 arma::mat PairNNAngular::dG1dR(arma::mat Rij, double Rc) {
@@ -161,7 +172,7 @@ arma::mat PairNNAngular::dG1dR(arma::mat Rij, double Rc) {
 
 double PairNNAngular::G2(arma::mat Rij, double eta, double Rc, double Rs) {
 
-  return arma::accu( arma::exp(-eta*(Rij - Rs)%(Rij - Rs)) % Fc(Rij, Rc) );
+  return arma::accu( arma::exp(-eta*(Rij - Rs)%(Rij - Rs)) % Fc(Rij, Rc, false) );
 }
 
 double PairNNAngular::G2(double Rij, double eta, double Rc, double Rs) {
@@ -173,7 +184,7 @@ void PairNNAngular::dG2dR(arma::mat Rij, double eta, double Rc, double Rs,
                           arma::mat &dG2) {
 
   dG2 = arma::exp(-eta*(Rij - Rs)%(Rij - Rs)) % 
-          ( 2*eta*(Rs - Rij)%Fc(Rij, Rc) + dFcdR(Rij, Rc) );
+          ( 2*eta*(Rs - Rij)%Fc(Rij, Rc, false) + dFcdR(Rij, Rc) );
 }
 
 double PairNNAngular::G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk, 
@@ -183,7 +194,7 @@ double PairNNAngular::G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk,
   return pow(2, 1-zeta) * 
          arma::accu( arma::pow(1 + lambda*cosTheta, zeta) % 
          arma::exp( -eta*(Rij%Rij + Rik%Rik + Rjk%Rjk) ) % 
-         Fc(Rij, Rc) % Fc(Rik, Rc) % Fc(Rjk, Rc) );
+         Fc(Rij, Rc, false) % Fc(Rik, Rc, false) % Fc(Rjk, Rc, true) );
 }
 
 double PairNNAngular::G4(double Rij, arma::mat Rik, arma::mat Rjk, 
@@ -193,7 +204,7 @@ double PairNNAngular::G4(double Rij, arma::mat Rik, arma::mat Rjk,
   return pow(2, 1-zeta) * 
          arma::accu( arma::pow(1 + lambda*cosTheta, zeta) % 
          arma::exp( -eta*(Rij*Rij + Rik%Rik + Rjk%Rjk) ) %
-         (Fc(Rij, Rc) * Fc(Rik, Rc) % Fc(Rjk, Rc)) );
+         (Fc(Rij, Rc) * Fc(Rik, Rc, false) % Fc(Rjk, Rc, true)) );
 }
 
 
@@ -203,34 +214,36 @@ void PairNNAngular::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk,
                           arma::mat &dEdR3, double *fj3,
                           arma::mat drij, arma::mat drik) {
 
-  arma::mat powCosThetaM1 = arma::pow(1 + lambda*cosTheta, zeta-1);
+  arma::mat powCosThetaM1 = pow(2, 1-zeta)*arma::pow(1 + lambda*cosTheta, zeta-1);
   arma::mat F1 = powCosThetaM1 % (1 + lambda*cosTheta);
 
   arma::mat F2 = arma::exp(-eta*(Rij*Rij + Rik%Rik + Rjk%Rjk));
 
-  double FcRij = Fc(Rij);
-  arma::mat FcRik = Fc(Rik);
-  arma::mat FcRjk = Fc(Rjk);
+  double FcRij = Fc(Rij, Rc);
+  arma::mat FcRik = Fc(Rik, Rc, false);
+  arma::mat FcRjk = Fc(Rjk, Rc, true);
   arma::mat F3 = FcRij * FcRik % FcRjk;
 
   arma::mat dF1dcosTheta = lambda*zeta*powCosThetaM1;
   arma::mat dF2dr = -2*eta*F2;
-  arma::mat dF3dr = dFcdR(Rij) * FcRik * FcRjk;
+  arma::mat dF3drij = dFcdR(Rij, Rc) * FcRik % FcRjk;
+  arma::mat dF3drik = FcRij * dFcdR(Rik, Rc) % FcRjk;
 
   arma::mat term1 = dF1dcosTheta % F2 % F3;
   arma::mat term2 = F1 % dF2dr % F3;
-  arma::mat term3 = F1 % F2 % dF3dr;
+  arma::mat term3ij = F1 % F2 % dF3drij;
+  arma::mat term3ik = F1 % F2 % dF3drik;
 
   double RijInv = 1.0 / Rij;
-  double cosRijInv2 = cosTheta / (Rij*Rij);
+  arma::mat cosRijInv2 = cosTheta / (Rij*Rij);
 
-  double RikInv = 1.0 / Rij;
-  double cosRikInv2 = cosTheta / (Rij*Rij);
+  arma::mat RikInv = 1.0 / Rik;
+  arma::mat cosRikInv2 = cosTheta / (Rik%Rik);
 
   arma::mat RijRikInv = 1.0 / (Rij*Rik);
 
-  arma::mat termij = cosRijInv2 % term1 + term2 - RijInv*term3;
-  arma::mat termik = cosRikInv2 % term1 + term2 - RikInv*term3;
+  arma::mat termij = (cosRijInv2 % term1) - term2 - RijInv*term3ij;
+  arma::mat termik = (cosRikInv2 % term1) - term2 - RikInv%term3ik;
   arma::mat crossTerm = -term1 % RijRikInv; 
 
   // all k's give a triplet energy contributon to atom j
@@ -246,6 +259,7 @@ void PairNNAngular::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk,
 
 void PairNNAngular::compute(int eflag, int vflag)
 {
+  feenableexcept(FE_INVALID | FE_OVERFLOW);
 
   double evdwl = 0.0;
   eng_vdwl = 0.0;
@@ -266,27 +280,27 @@ void PairNNAngular::compute(int eflag, int vflag)
   double fxtmp,fytmp,fztmp;
 
   // loop over full neighbor list of my atoms
-
   for (int ii = 0; ii < inum; ii++) {
     int i = ilist[ii];
     tagint itag = tag[i];
     double xtmp = x[i][0];
     double ytmp = x[i][1];
     double ztmp = x[i][2];
-    double fxtmp = fytmp = fztmp = 0.0;
 
     // two-body interactions, skip half of them
     int *jlist = firstneigh[i];
     int jnum = numneigh[i];
     int numshort = 0;
 
-    // collect all neighbours in arma matrix
-    arma::mat Rij(1, 30);        // all pairs (i,j)
-    arma::mat drij(3, 30);       // (dxij, dyij, dzyij)   
-    std::vector<int> tagsj(30);
+    // collect all neighbours in arma matrix, jnum max
+    arma::mat Rij2(1, jnum);        // all pairs (i,j)
+    arma::mat Rij3(1, jnum);
+    arma::mat drij(3, jnum);       // (dxij, dyij, dzyij)   
+    std::vector<int> tagsj(jnum);  // indicies of j-atoms
 
     // store all triplets etc in vectors
     // jnum pairs, jnum-1 triplets max
+    // for every (i,j) there is a vector of the below quantities
     std::vector<arma::mat> Riks(jnum-1);
     std::vector<arma::mat> driks(jnum-1);
     std::vector<arma::mat> cosThetas(jnum-1);
@@ -296,14 +310,17 @@ void PairNNAngular::compute(int eflag, int vflag)
     // input vector to NN
     arma::mat inputVector(1, m_numberOfSymmFunc, arma::fill::zeros);
 
+    // keep track of how many atoms below r2 and N3L
+    int neighbours = 0; 
+
     // collect all pairs and triplets
-    int neighbours = 0;
     for (int jj = 0; jj < jnum; jj++) {
 
       int j = jlist[jj];
       j &= NEIGHMASK;
       tagint jtag = tag[j];
 
+      // N3L
       if (itag > jtag) {
         if ((itag+jtag) % 2 == 0) continue;
       } else if (itag < jtag) {
@@ -323,13 +340,14 @@ void PairNNAngular::compute(int eflag, int vflag)
 
       // store pair coordinates
       double rij = sqrt(rsq1);
+      if (!rij>0) {cout << "rij: " << rij << endl; exit(1);}
       drij(0, neighbours) = delxj;
       drij(1, neighbours) = delyj;
       drij(2, neighbours) = delzj;
       Rij(0, neighbours) = rij;
       tagsj[neighbours] = j;
 
-      // collect triplets
+      // collect triplets for this (i,j)
       arma::mat Rik(1, 20);
       arma::mat drik(3, 20);
 
@@ -344,17 +362,25 @@ void PairNNAngular::compute(int eflag, int vflag)
         k &= NEIGHMASK;
 
         double delxk = xtmp - x[k][0];
-        double delyk = xtmp - x[k][1];
-        double delzk = xtmp - x[k][2];
+        double delyk = ytmp - x[k][1];
+        double delzk = ztmp - x[k][2];
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
         if (rsq2 >= cutoff*cutoff) continue;
         
+        // store triplets for this (i,j)
         double rik = sqrt(rsq2);
+        if (!rik>0) {
+          cout << "rik: " << rik << endl;
+          cout << "rsq2 " << rsq2 << endl;
+        }
         drik(0, neighk) = delxk;
         drik(1, neighk) = delyk;
         drik(2, neighk) = delzk;
         Rik(0,neighk) = rik;
+
+        // need to store all k's for each pair (i,j)
+        // i.e. store all triplets 
         tagsk[neighbours].push_back(k);
         neighk++;
       }
@@ -362,6 +388,9 @@ void PairNNAngular::compute(int eflag, int vflag)
       // get rid of empty elements
       Rik = Rik.head_cols(neighk);
       drik = drik.head_cols(neighk);
+
+      // skip if number of triplets is zero
+      if (neighk == 0) continue;
 
       // get theta and rjk
       // drij: (3,1)
@@ -377,19 +406,14 @@ void PairNNAngular::compute(int eflag, int vflag)
       arma::mat Rjk = arma::sqrt(rij*rij + Rik%Rik  - 2*rij*Rik%cosTheta);
 
       // the last element will be empty matrices
+      // store all k's for curren (i,j) to compute forces later
       Riks[neighbours]      = Rik;
       driks[neighbours]     = drik;
       cosThetas[neighbours] = cosTheta;
       Rjks[neighbours]      = Rjk;
       neighbours++;
-
-      /*std::cout << "neighbours " << neighbours << std::endl;
-      std::cout << "neighk " << neighk << std::endl;
-      std::cout << "Rij: " << arma::size(Rij) << std::endl;
-      std::cout << Rij << std::endl;
-      std::cout << rij << std::endl;
-      std::cout << "drij: " << arma::size(drij) << std::endl;
-      std::cout << drij << std::endl;
+      
+      /*std::cout << "neighk " << neighk << std::endl;
       std::cout << "Rik: " << arma::size(Rik) << std::endl;
       std::cout << Rik << std::endl;
       std::cout << "drik: " << arma::size(drik) << std::endl;
@@ -400,6 +424,9 @@ void PairNNAngular::compute(int eflag, int vflag)
       std::cout << Rjk << std::endl;*/
        
       // transform with symmetry functions, loop over all the parameters
+      // G2: evaluated once for each pair (i,j). rij is a number each time
+      // G4: evaluated once for each pair (i,j), but rik etc. are vectors
+      // that contain all ks for each pair (i,j)
       for (int s=0; s < m_numberOfSymmFunc; s++) {
         if ( m_parameters[s].size() == 3) 
           inputVector(0,s) += G2(rij, m_parameters[s][0],
@@ -411,8 +438,30 @@ void PairNNAngular::compute(int eflag, int vflag)
       }
     }
 
+    // get rid of empty elements
     Rij = Rij.head_cols(neighbours);
     drij = drij.head_cols(neighbours);
+
+    // skip curent atom i if no neighbours
+    // this can happen if few neighbours and all of them 
+    // are excluded because of the N3L test
+    if (neighbours == 0) continue;
+
+    /*std::cout << "neighbours " << neighbours << std::endl;
+    std::cout << "Rij: " << arma::size(Rij) << std::endl;
+    std::cout << Rij << std::endl;
+    std::cout << "drij: " << arma::size(drij) << std::endl;
+    std::cout << drij << std::endl;
+    cout << "Riks0: " << Riks[0] << std::endl;
+    cout << "Riks1: " << Riks[1] << std::endl;
+    cout << "driks0: " << driks[0] << std::endl;
+    cout << "driks1: " << driks[1] << std::endl;
+    cout << "cosThetas0: " << cosThetas[0] << endl;
+    cout << "cosThetas2: " << cosThetas[1] << endl;
+    cout << "Rjks0: " << Rjks[0] << endl;
+    cout << "Rjks1: " << Rjks[1] << endl;
+
+    std::cout << "inputVector: " << inputVector << endl;*/
 
     // apply NN to get energy
     evdwl = network(inputVector);
@@ -425,53 +474,61 @@ void PairNNAngular::compute(int eflag, int vflag)
     // UNTRUE(?): dEdR(j) will be the force contribution from atom j on atom i
     for (int s=0; s < m_numberOfSymmFunc; s++) {
       
+      // G2: one atomic pair environment per symmetry function
       if ( m_parameters[s].size() == 3) {
-        // G2: one atomic pair environment per symmetry function
 
-        arma::mat dG2(1,neighbours); 
-        double fj2[3];
+        arma::mat dG2(1,neighbours); // derivative of G2
+        double fj2[3];               // pair force
 
-        // calculate forces for all pairs
+        // calculate cerivative of G2 for all pairs
+        // pass dG2 by reference instead of coyping matrices
+        // and returning from function --> speed-up
         dG2dR(Rij, m_parameters[s][0],
-              m_parameters[s][1], m_parameters[s][2]);
+              m_parameters[s][1], m_parameters[s][2], dG2);
 
+        // chain rule. all pair foces
         arma::mat fpairs = -dEdG(0,s) * dG2 / Rij;
 
         // loop through all pairs for N3L
         for (int l=0; l < neighbours; l++) {
           double fpair = fpairs(0,l);
-          f[i][0] += fpair*drij(l,0);
-          f[i][1] += fpair*drij(l,1);
-          f[i][2] += fpair*drij(l,2);
-          f[tagsj[l]][0] -= fpair*drij(l,0);
-          f[tagsj[l]][1] -= fpair*drij(l,1);
-          f[tagsj[l]][2] -= fpair*drij(l,2);
+          f[i][0] += fpair*drij(0,l);
+          f[i][1] += fpair*drij(1,l);
+          f[i][2] += fpair*drij(2,l);
+          f[tagsj[l]][0] -= fpair*drij(0,l);
+          f[tagsj[l]][1] -= fpair*drij(1,l);
+          f[tagsj[l]][2] -= fpair*drij(2,l);
         }
-
-        // i force is sum of all pair forces
-
       }
 
+      // G4/G5: neighbours-1 triplet environments per symmetry function
       else {
-        // G4/G5: neighbours-1 triplet environments per symmetry function
-
+        
         for (int l=0; l < neighbours-1; l++) {
 
-          int numberOfTriplets = arma::size(Riks[l](1));
-          double fj3[3];
-          arma::mat dEdR3(3, numberOfTriplets);
+          int numberOfTriplets = arma::size(Riks[l])(1);
+
+          double fj3[3];  // triplet force for atom j
+          arma::mat dEdR3(3, numberOfTriplets); // triplet force for all atoms k
 
           // calculate forces for all triplets (i,j,k) for this (i,j)
+          // fj3 and dEdR3 is passed by reference
+          // all triplet forces are summed and stored for j in fj3
+          // dEdR3 will contain triplet forces for all k, need 
+          // each one seperately for N3L
+          // Riks[l], Rjks[l], cosThetas[l] : (1,numberOfTriplets)
+          // dEdR3, driks[l]: (3, numberOfTriplets)
+          // drij.col(l): (1,3)
           dG4dR(Rij(0,l), Riks[l], Rjks[l], cosThetas[l],
                 m_parameters[s][0], m_parameters[s][1], 
                 m_parameters[s][2], m_parameters[s][3], 
-                dEdR3, drij.col(l), driks[l]); 
+                dEdR3, fj3, drij.col(l), driks[l]); 
 
-          // N3L: add 3-body forces for k
+          // N3L: add 3-body forces for i and k
           for (int m=0; m < numberOfTriplets; m++) {
-            f[tags[l][m]][0] -= dEdG(0,s) * dEdR3(0,m);
-            f[tags[l][m]][1] -= dEdG(0,s) * dEdR3(1,m);
-            f[tags[l][m]][2] -= dEdG(0,s) * dEdR3(2,m);
+            f[tagsk[l][m]][0] -= dEdG(0,s) * dEdR3(0,m);
+            f[tagsk[l][m]][1] -= dEdG(0,s) * dEdR3(1,m);
+            f[tagsk[l][m]][2] -= dEdG(0,s) * dEdR3(2,m);
           }
 
           // add 3-body forces for i, sum of j and k-forces
@@ -479,37 +536,13 @@ void PairNNAngular::compute(int eflag, int vflag)
           f[i][1] += dEdG(0,s) * ( fj3[1] + arma::accu(dEdR3.row(1)) );
           f[i][2] += dEdG(0,s) * ( fj3[2] + arma::accu(dEdR3.row(2)) );
 
-          // N3L: add 3-body force for j
+          // N3L: add 3-body force for j. fj3 is sum of all triplet forces
           f[tagsj[l]][0] -= dEdG(0,s) * fj3[0];
           f[tagsj[l]][1] -= dEdG(0,s) * fj3[1];
           f[tagsj[l]][2] -= dEdG(0,s) * fj3[2];
         }
       }
     }
-    // find total force
-    for (int l=0; l < neighbours; l++) {
-      double fpair = -dEdR(0,l) / Rij(0,l);
-      f[i][0] += fpair*drij(l,0);
-      f[i][1] += fpair*drij(l,1);
-      f[i][2] += fpair*drij(l,2);
-      f[tagsj[l]][0] -= fpair*drij(l,0);
-      f[tagsj[l]][1] -= fpair*drij(l,1);
-      f[tagsj[l]][2] -= fpair*drij(l,2);
-      for (int m=0; m < neighbours-1; m++) {
-        double ftriplet = -dEdR(0,l) / Rik(0,l);
-        f[]
-      }
-    }
-
-    f[i][0] -= fj[0] + fk[0];
-    f[i][1] -= fj[1] + fk[1];
-    f[i][2] -= fj[2] + fk[2];
-    f[j][0] += fj[0];
-    f[j][1] += fj[1];
-    f[j][2] += fj[2];
-    f[k][0] += fk[0];
-    f[k][1] += fk[1];
-    f[k][2] += fk[2];
   }
   if (vflag_fdotr) virial_fdotr_compute();
 }

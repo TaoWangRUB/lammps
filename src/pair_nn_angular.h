@@ -41,7 +41,7 @@ class PairNNAngular : public Pair {
   arma::mat backPropagation();
   arma::mat sigmoid(arma::mat matrix);
   arma::mat sigmoidDerivative(arma::mat matrix);
-  arma::mat Fc(arma::mat Rij, double Rc);
+  arma::mat Fc(arma::mat Rij, double Rc, bool cut);
   double Fc(double Rij, double Rc);
   arma::mat dFcdR(arma::mat Rij, double Rc);
   double dFcdR(double Rij, double Rc);
@@ -49,7 +49,7 @@ class PairNNAngular : public Pair {
   arma::mat dG1dR(arma::mat Rij, double Rc);;
   double G2(arma::mat Rij, double eta, double Rc, double Rs);
   double G2(double Rij, double eta, double Rc, double Rs);
-  arma::mat dG2dR(arma::mat Rij, double eta, double Rc, double Rs);
+  void dG2dR(arma::mat Rij, double eta, double Rc, double Rs, arma::mat &dG2);
   double G4(arma::mat Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
             double eta, double Rc, double zeta, double lambda);
   double G4(double Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
