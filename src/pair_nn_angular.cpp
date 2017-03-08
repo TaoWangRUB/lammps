@@ -320,7 +320,7 @@ void PairNNAngular::compute(int eflag, int vflag)
       tagint jtag = tag[j];
 
       // N3L
-      if (itag > jtag) {
+      /*if (itag > jtag) {
         if ((itag+jtag) % 2 == 0) continue;
       } else if (itag < jtag) {
         if ((itag+jtag) % 2 == 1) continue;
@@ -328,7 +328,7 @@ void PairNNAngular::compute(int eflag, int vflag)
         if (x[j][2] < ztmp) continue;
         if (x[j][2] == ztmp && x[j][1] < ytmp) continue;
         if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp) continue;
-      }
+      }*/
 
       double delxj = xtmp - x[j][0];
       double delyj = ytmp - x[j][1];
