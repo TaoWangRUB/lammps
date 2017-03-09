@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pair_nn_angular.h"
+#include "pair_nn_angular2.h"
 #include "atom.h"
 #include "neighbor.h"
 #include "neigh_request.h"
@@ -34,7 +34,6 @@
 #include <fenv.h>
 
 #include <fstream>
-#include <iomanip>
 
 using namespace LAMMPS_NS;
 using std::cout;
@@ -45,9 +44,9 @@ using std::endl;
 
 /* ---------------------------------------------------------------------- */
 
-PairNNAngular::PairNNAngular(LAMMPS *lmp) : Pair(lmp)
+PairNNAngular2::PairNNAngular2(LAMMPS *lmp) : Pair(lmp)
 {
-  single_enable = 0; // We don't provide the force between two atoms only since it is Angular
+  single_enable = 0; // We don't provide the force between two atoms only since it is Angular2
   restartinfo = 0;   // We don't write anything to restart file
   one_coeff = 1;     // only one coeff * * call
   manybody_flag = 1; // Not only a pair style since energies are computed from more than one neighbor
@@ -58,7 +57,7 @@ PairNNAngular::PairNNAngular(LAMMPS *lmp) : Pair(lmp)
    check if allocated, since class can be destructed when incomplete
 ------------------------------------------------------------------------- */
 
-PairNNAngular::~PairNNAngular()
+PairNNAngular2::~PairNNAngular2()
 {
   if (copymode) return;
   // If you allocate stuff you should delete and deallocate here. 
@@ -73,7 +72,7 @@ PairNNAngular::~PairNNAngular()
 
 /* ---------------------------------------------------------------------- */
 
-double PairNNAngular::network(arma::mat inputVector) {
+double PairNNAngular2::network(arma::mat inputVector) {
     // inputGraph vector is a 1xinputGraphs vector
 
     // linear activation for inputGraph layer
@@ -96,7 +95,7 @@ double PairNNAngular::network(arma::mat inputVector) {
     return m_activations[m_nLayers+1](0,0);
 }
 
-arma::mat PairNNAngular::backPropagation() {
+arma::mat PairNNAngular2::backPropagation() {
   // find derivate of output w.r.t. intput, i.e. dE/dr_ij
   // need to find the "error" terms for all the nodes in all the layers
 
@@ -118,18 +117,18 @@ arma::mat PairNNAngular::backPropagation() {
   return m_derivatives[0];
 }
 
-arma::mat PairNNAngular::sigmoid(arma::mat matrix) {
+arma::mat PairNNAngular2::sigmoid(arma::mat matrix) {
 
   return 1.0/(1 + arma::exp(-matrix));
 }
 
-arma::mat PairNNAngular::sigmoidDerivative(arma::mat matrix) {
+arma::mat PairNNAngular2::sigmoidDerivative(arma::mat matrix) {
 
   arma::mat sigmoidMatrix = sigmoid(matrix);
   return sigmoidMatrix % (1 - sigmoidMatrix);
 }
 
-arma::mat PairNNAngular::Fc(arma::mat R, double Rc, bool cut) {
+arma::mat PairNNAngular2::Fc(arma::mat R, double Rc, bool cut) {
 
   arma::mat value = 0.5*(arma::cos(m_pi*R/Rc) + 1);
 
@@ -141,61 +140,62 @@ arma::mat PairNNAngular::Fc(arma::mat R, double Rc, bool cut) {
   return value;
 }
 
-double PairNNAngular::Fc(double R, double Rc) {
+double PairNNAngular2::Fc(double R, double Rc, bool cut) {
 
-  /*if (Rij < Rc)
-    return 0.5*(cos(m_pi*Rij/Rc) + 1);
+  if (cut)
+    if (R < Rc)
+      return 0.5*(cos(m_pi*R/Rc) + 1);
+    else
+      return 0;
   else
-    return 0;*/
-  return 0.5*(cos(m_pi*R/Rc) + 1);
+    return 0.5*(cos(m_pi*R/Rc) + 1);
 }
 
-arma::mat PairNNAngular::dFcdR(arma::mat R, double Rc) {
+arma::mat PairNNAngular2::dFcdR(arma::mat R, double Rc) {
 
   Rc = 1.0/Rc;
   return -(0.5*3.14*Rc) * arma::sin(m_pi*R*Rc); 
 }
 
-double PairNNAngular::dFcdR(double R, double Rc) {
+double PairNNAngular2::dFcdR(double R, double Rc) {
 
   Rc = 1.0/Rc;
   return -(0.5*m_pi*Rc) * sin(m_pi*R*Rc);
 }
 
-double PairNNAngular::G1(arma::mat Rij, double Rc) {
+double PairNNAngular2::G1(arma::mat Rij, double Rc) {
 
   return arma::accu( Fc(Rij, Rc, false) );
 }
 
-arma::mat PairNNAngular::dG1dR(arma::mat Rij, double Rc) {
+arma::mat PairNNAngular2::dG1dR(arma::mat Rij, double Rc) {
 
   return dFcdR(Rij, Rc);
 }
 
-double PairNNAngular::G2(double Rij, double eta, double Rc, double Rs) {
+double PairNNAngular2::G2(double rij, double eta, double Rc, double Rs) {
 
-  return exp(-eta*(Rij - Rs)*(Rij - Rs)) * Fc(Rij, Rc);
+  return exp(-eta*(rij - Rs)*(rij - Rs)) * Fc(rij, Rc, false);
 }
 
-void PairNNAngular::dG2dR(arma::mat Rij, double eta, double Rc, double Rs,
+void PairNNAngular2::dG2dR(arma::mat Rij, double eta, double Rc, double Rs,
                           arma::mat &dG2) {
 
   dG2 = arma::exp(-eta*(Rij - Rs)%(Rij - Rs)) % 
-          ( 2*eta*(Rs - Rij)%Fc(Rij, Rc, false) + dFcdR(Rij, Rc) )  ;
+          ( 2*eta*(Rs - Rij)%Fc(Rij, Rc, false) + dFcdR(Rij, Rc) );
 }
 
-double PairNNAngular::G4(double Rij, arma::mat Rik, arma::mat Rjk, 
-                        arma::mat cosTheta, double eta, double Rc, 
-                        double zeta, double lambda) {
+double PairNNAngular2::G4(double rij, double rik, double rjk, double cosTheta, 
+                          double eta, double Rc, double zeta, double lambda) {
 
   return pow(2, 1-zeta) * 
-         arma::accu( arma::pow(1 + lambda*cosTheta, zeta) % 
-         arma::exp( -eta*(Rij*Rij + Rik%Rik + Rjk%Rjk) ) %
-         (Fc(Rij, Rc) * Fc(Rik, Rc, false) % Fc(Rjk, Rc, true)) );
+         pow(1 + lambda*cosTheta, zeta) *  
+         exp( -eta*(rij*rij + rik*rik + rjk*rjk) ) * 
+         Fc(rij, Rc, false) * Fc(rik, Rc, false) * Fc(rjk, Rc, true);
 }
 
 
-void PairNNAngular::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, 
+void PairNNAngular2::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, 
                           arma::mat cosTheta, double eta, double Rc, 
                           double zeta, double lambda,
                           arma::mat &dEdR3, double *fj3,
@@ -206,13 +206,13 @@ void PairNNAngular::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk,
 
   arma::mat F2 = arma::exp(-eta*(Rij*Rij + Rik%Rik + Rjk%Rjk));
 
-  double FcRij = Fc(Rij, Rc);
+  double FcRij = Fc(Rij, Rc, false);
   arma::mat FcRik = Fc(Rik, Rc, false);
   arma::mat FcRjk = Fc(Rjk, Rc, true);
   arma::mat F3 = FcRij * FcRik % FcRjk;
 
   arma::mat dF1dcosTheta = lambda*zeta*powCosThetaM1;
-  arma::mat dF2dr = 2*eta*F2;
+  arma::mat dF2dr = -2*eta*F2;
   arma::mat dF3drij = dFcdR(Rij, Rc) * FcRik % FcRjk;
   arma::mat dF3drik = FcRij * dFcdR(Rik, Rc) % FcRjk;
 
@@ -229,7 +229,6 @@ void PairNNAngular::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk,
 
   arma::mat RijRikInv = 1.0 / (Rij*Rik);
 
-  // IS THE SIGNS CORRECT HERE??????
   arma::mat termij = (cosRijInv2 % term1) - term2 - RijInv*term3ij;
   arma::mat termik = (cosRikInv2 % term1) - term2 - RikInv%term3ik;
   arma::mat crossTerm = -term1 % RijRikInv; 
@@ -245,7 +244,7 @@ void PairNNAngular::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk,
   dEdR3.row(2) =  (drik.row(2) % termik) + (drij(2,0) * crossTerm);
 }
 
-void PairNNAngular::compute(int eflag, int vflag)
+void PairNNAngular2::compute(int eflag, int vflag)
 {
   feenableexcept(FE_INVALID | FE_OVERFLOW);
 
@@ -322,9 +321,17 @@ void PairNNAngular::compute(int eflag, int vflag)
       Rij(0, neighbours) = rij;
       tagsj[neighbours] = j;
 
+      // apply 2-body symmetry
+      for (int s=0; s < m_numberOfSymmFunc; s++)
+        if ( m_parameters[s].size() == 3 ) 
+          inputVector(0,s) += G2(rij, m_parameters[s][0],
+                                 m_parameters[s][1], m_parameters[s][2]);
+
       // collect triplets for this (i,j)
-      arma::mat Rik(1, 20);
-      arma::mat drik(3, 20);
+      arma::mat Rik(1, jnum-1);
+      arma::mat drik(3, jnum-1);
+      arma::mat CosTheta(1, jnum-1);
+      arma::mat Rjk(1, jnum-1); 
 
       // three-body
       int neighk = 0;
@@ -340,14 +347,30 @@ void PairNNAngular::compute(int eflag, int vflag)
 
         if (rsq2 >= cutoff*cutoff) continue;
         
-        // store triplets for this (i,j)
+        // calculate quantites needed in G4
         double rik = sqrt(rsq2);
+        double cosTheta = ( delxj*delxk + delyj*delyk + 
+                            delzj*delzk ) / (rij*rik);
+        double rjk = sqrt(rij*rij + rik*rik  - 2*rij*rik*cosTheta);
+
+        // collect triplets
         drik(0, neighk) = delxk;
         drik(1, neighk) = delyk;
         drik(2, neighk) = delzk;
         Rik(0,neighk) = rik;
+        CosTheta(0, neighk) = cosTheta;
+        Rjk(0, neighk) = rjk;
         tagsk[neighbours].push_back(k);
+
+        // increment
         neighk++;
+
+        // apply 3-body symmetry
+        for (int s=0; s < m_numberOfSymmFunc; s++) 
+          if ( m_parameters[s].size() == 4 ) 
+            inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
+                                   m_parameters[s][0], m_parameters[s][1], 
+                                   m_parameters[s][2], m_parameters[s][3]);
       }
 
       // skip if no triplets left
@@ -356,42 +379,25 @@ void PairNNAngular::compute(int eflag, int vflag)
       // get rid of empty elements
       Rik = Rik.head_cols(neighk);
       drik = drik.head_cols(neighk);
-
-      // calculate quantites needed in G4
-      arma::mat cosTheta = ( delxj*drik.row(0) + delyj*drik.row(1) + 
-                             delzj*drik.row(2) ) / (rij*Rik);
-      arma::mat Rjk = arma::sqrt(rij*rij + Rik%Rik  - 2*rij*Rik%cosTheta);
+      CosTheta = CosTheta.head_cols(neighk);
+      Rjk = Rjk.head_cols(neighk);
 
       // store all k's for curren (i,j) to compute forces later
       Riks[neighbours]      = Rik;
       driks[neighbours]     = drik;
-      cosThetas[neighbours] = cosTheta;
+      cosThetas[neighbours] = CosTheta;
       Rjks[neighbours]      = Rjk;
       neighbours++;
-      
+    
       /*std::cout << "neighk " << neighk << std::endl;
       std::cout << "Rik: " << arma::size(Rik) << std::endl;
       std::cout << Rik << std::endl;
       std::cout << "drik: " << arma::size(drik) << std::endl;
       std::cout << drik << std::endl;
-      std::cout << "cosTheta: " << arma::size(cosTheta) << std::endl;
-      std::cout << cosTheta << std::endl;
+      std::cout << "cosTheta: " << arma::size(CosTheta) << std::endl;
+      std::cout << CosTheta << std::endl;
       std::cout << "Rjk: " << arma::size(Rjk) << std::endl;
       std::cout << Rjk << std::endl;*/
-       
-      // transform with symmetry functions, loop over all the parameters
-      // G2: evaluated once for each pair (i,j). rij is a number each time
-      // G4: evaluated once for each pair (i,j), but rik etc. are vectors
-      // that contain all ks for each pair (i,j)
-      for (int s=0; s < m_numberOfSymmFunc; s++) {
-        if ( m_parameters[s].size() == 3 ) 
-          inputVector(0,s) += G2(rij, m_parameters[s][0],
-                               m_parameters[s][1], m_parameters[s][2]);
-        else
-          inputVector(0,s) += G4(rij, Rik, Rjk, cosTheta,
-                       m_parameters[s][0], m_parameters[s][1], 
-                       m_parameters[s][2], m_parameters[s][3]);
-      }
     }
 
     // get rid of empty elements
@@ -410,7 +416,9 @@ void PairNNAngular::compute(int eflag, int vflag)
     cout << "cosThetas0: " << cosThetas[0] << endl;
     cout << "cosThetas2: " << cosThetas[1] << endl;
     cout << "Rjks0: " << Rjks[0] << endl;
-    cout << "Rjks1: " << Rjks[1] << endl;*/
+    cout << "Rjks1: " << Rjks[1] << endl;
+
+    std::cout << "inputVector: " << inputVector << endl;*/
 
     // apply NN to get energy
     evdwl = network(inputVector);
@@ -445,7 +453,7 @@ void PairNNAngular::compute(int eflag, int vflag)
           f[i][1] += fpair*drij(1,l);
           f[i][2] += fpair*drij(2,l);
 
-          // NOT N3L
+          // NOT N3L NOW
           //f[tagsj[l]][0] -= fpair*drij(0,l);
           //f[tagsj[l]][1] -= fpair*drij(1,l);
           //f[tagsj[l]][2] -= fpair*drij(2,l);
@@ -496,12 +504,11 @@ void PairNNAngular::compute(int eflag, int vflag)
     }
   }
   if (vflag_fdotr) virial_fdotr_compute();
-  myStep++;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void PairNNAngular::allocate()
+void PairNNAngular2::allocate()
 {
   allocated = 1;
   int n = atom->ntypes;
@@ -513,7 +520,7 @@ void PairNNAngular::allocate()
    global settings
 ------------------------------------------------------------------------- */
 
-void PairNNAngular::settings(int narg, char **arg)
+void PairNNAngular2::settings(int narg, char **arg)
 {
   if (narg != 0) error->all(FLERR,"Illegal pair_style command");
 }
@@ -522,7 +529,7 @@ void PairNNAngular::settings(int narg, char **arg)
    set coeffs for one or more type pairs
 ------------------------------------------------------------------------- */
 
-void PairNNAngular::coeff(int narg, char **arg)
+void PairNNAngular2::coeff(int narg, char **arg)
 {
   if (!allocated) allocate();
 
@@ -555,7 +562,7 @@ void PairNNAngular::coeff(int narg, char **arg)
    init specific to this pair style
 ------------------------------------------------------------------------- */
 
-void PairNNAngular::init_style()
+void PairNNAngular2::init_style()
 {
   if (atom->tag_enable == 0)
     error->all(FLERR,"Pair style NN requires atom IDs");
@@ -572,7 +579,7 @@ void PairNNAngular::init_style()
    init for one type pair i,j and corresponding j,i
 ------------------------------------------------------------------------- */
 
-double PairNNAngular::init_one(int i, int j)
+double PairNNAngular2::init_one(int i, int j)
 {
   if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
 
@@ -581,7 +588,7 @@ double PairNNAngular::init_one(int i, int j)
 
 /* ---------------------------------------------------------------------- */
 
-void PairNNAngular::read_file(char *file)
+void PairNNAngular2::read_file(char *file)
 {
   // convert to string 
   std::string trainingDir(file);

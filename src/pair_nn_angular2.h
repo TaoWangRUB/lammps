@@ -13,12 +13,12 @@
 
 #ifdef PAIR_CLASS
 
-PairStyle(nn/angular,PairNNAngular)
+PairStyle(nn/angular2,PairNNAngular2)
 
 #else
 
-#ifndef LMP_PAIR_NN_ANGULAR_H
-#define LMP_PAIR_NN_ANGULAR_H
+#ifndef LMP_PAIR_NN_ANGULAR2_H
+#define LMP_PAIR_NN_ANGULAR2_H
 
 #include "pair.h"
 
@@ -27,33 +27,34 @@ PairStyle(nn/angular,PairNNAngular)
 
 namespace LAMMPS_NS {
 
-class PairNNAngular : public Pair {
+class PairNNAngular2 : public Pair {
  public:
-  PairNNAngular(class LAMMPS *);
-  virtual ~PairNNAngular();
+  PairNNAngular2(class LAMMPS *);
+  virtual ~PairNNAngular2();
   virtual void compute(int, int);
   virtual void settings(int, char **);
   void coeff(int, char **);
   double init_one(int, int);
   void init_style();
 
-  double network(arma::mat inputVector);
+    double network(arma::mat inputVector);
   arma::mat backPropagation();
+  
   arma::mat sigmoid(arma::mat matrix);
   arma::mat sigmoidDerivative(arma::mat matrix);
   
   arma::mat Fc(arma::mat R, double Rc, bool cut);
-  double Fc(double R, double Rc);
+  double Fc(double R, double Rc, bool cut);
   
   arma::mat dFcdR(arma::mat R, double Rc);
   double dFcdR(double R, double Rc);
   
   double G1(arma::mat Rij, double Rc);
-  double G2(double Rij, double eta, double Rc, double Rs);
-  double G4(double Rij, arma::mat Rik, arma::mat Rjk, arma::mat cosTheta, 
+  double G2(double rij, double eta, double Rc, double Rs);
+  double G4(double rij, double rik, double rjk, double cosTheta, 
             double eta, double Rc, double zeta, double lambda);
 
-  arma::mat dG1dR(arma::mat Rij, double Rc);;
+  arma::mat dG1dR(arma::mat Rij, double Rc);
   void dG2dR(arma::mat Rij, double eta, double Rc, double Rs, arma::mat& dG2);
   void dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, 
              arma::mat cosTheta, double eta, double Rc, 
@@ -78,7 +79,6 @@ class PairNNAngular : public Pair {
   int m_numberOfSymmFunc;
   int m_numberOfParameters;
   const double m_pi = arma::datum::pi;
-  int myStep = 0;
 
   void allocate();
   void read_file(char *);
