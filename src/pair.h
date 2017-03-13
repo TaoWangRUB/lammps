@@ -128,6 +128,10 @@ class Pair : protected Pointers {
                 double, double, double);
   void ev_tally3(int, int, int, double, double,
                  double *, double *, double *, double *);
+  void ev_tally3_nn(int i, int j, int k,
+                    double *fj, double *fk,
+                    double xij, double yij, double zij,
+                    double xik, double yik, double zik);
   void v_tally3(int, int, int, double *, double *, double *, double *);
   void v_tally4(int, int, int, int, double *, double *, double *,
                 double *, double *, double *);

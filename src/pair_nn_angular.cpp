@@ -212,7 +212,7 @@ void PairNNAngular::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk,
   arma::mat F3 = FcRij * FcRik % FcRjk;
 
   arma::mat dF1dcosTheta = lambda*zeta*powCosThetaM1;
-  arma::mat dF2dr = 2*eta*F2;
+  arma::mat dF2dr = -2*eta*F2;
   arma::mat dF3drij = dFcdR(Rij, Rc) * FcRik % FcRjk;
   arma::mat dF3drik = FcRij * dFcdR(Rik, Rc) % FcRjk;
 
@@ -446,14 +446,14 @@ void PairNNAngular::compute(int eflag, int vflag)
           f[i][2] += fpair*drij(2,l);
 
           // NOT N3L
-          //f[tagsj[l]][0] -= fpair*drij(0,l);
-          //f[tagsj[l]][1] -= fpair*drij(1,l);
-          //f[tagsj[l]][2] -= fpair*drij(2,l);
+          f[tagsj[l]][0] -= fpair*drij(0,l);
+          f[tagsj[l]][1] -= fpair*drij(1,l);
+          f[tagsj[l]][2] -= fpair*drij(2,l);
         }
       }
 
       // G4/G5: neighbours-1 triplet environments per symmetry function
-      else {
+      else { 
         
         for (int l=0; l < neighbours-1; l++) {
 

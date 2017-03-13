@@ -59,7 +59,7 @@ class PairNNAngular2 : public Pair {
   void dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, 
              arma::mat cosTheta, double eta, double Rc, 
              double zeta, double lambda,
-             arma::mat &dEdR3, double *fj3,
+             arma::mat &dEdRj3, arma::mat &dEdRk3,
              arma::mat drij, arma::mat drik);
  
  protected:
@@ -79,6 +79,7 @@ class PairNNAngular2 : public Pair {
   int m_numberOfSymmFunc;
   int m_numberOfParameters;
   const double m_pi = arma::datum::pi;
+  int myStep = 0;
 
   void allocate();
   void read_file(char *);

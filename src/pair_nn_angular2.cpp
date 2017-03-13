@@ -34,6 +34,7 @@
 #include <fenv.h>
 
 #include <fstream>
+#include <iomanip>
 
 using namespace LAMMPS_NS;
 using std::cout;
@@ -154,7 +155,7 @@ double PairNNAngular2::Fc(double R, double Rc, bool cut) {
 arma::mat PairNNAngular2::dFcdR(arma::mat R, double Rc) {
 
   Rc = 1.0/Rc;
-  return -(0.5*3.14*Rc) * arma::sin(m_pi*R*Rc); 
+  return -(0.5*m_pi*Rc) * arma::sin(m_pi*R*Rc); 
 }
 
 double PairNNAngular2::dFcdR(double R, double Rc) {
@@ -182,7 +183,7 @@ void PairNNAngular2::dG2dR(arma::mat Rij, double eta, double Rc, double Rs,
                           arma::mat &dG2) {
 
   dG2 = arma::exp(-eta*(Rij - Rs)%(Rij - Rs)) % 
-          ( 2*eta*(Rs - Rij)%Fc(Rij, Rc, false) + dFcdR(Rij, Rc) );
+          ( 2*eta*(Rs - Rij) % Fc(Rij, Rc, false) + dFcdR(Rij, Rc) );
 }
 
 double PairNNAngular2::G4(double rij, double rik, double rjk, double cosTheta, 
@@ -198,7 +199,7 @@ double PairNNAngular2::G4(double rij, double rik, double rjk, double cosTheta,
 void PairNNAngular2::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, 
                           arma::mat cosTheta, double eta, double Rc, 
                           double zeta, double lambda,
-                          arma::mat &dEdR3, double *fj3,
+                          arma::mat &dEdRj3, arma::mat &dEdRk3,
                           arma::mat drij, arma::mat drik) {
 
   arma::mat powCosThetaM1 = pow(2, 1-zeta)*arma::pow(1 + lambda*cosTheta, zeta-1);
@@ -234,14 +235,14 @@ void PairNNAngular2::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk,
   arma::mat crossTerm = -term1 % RijRikInv; 
 
   // all k's give a triplet energy contributon to atom j
-  fj3[0] =  arma::accu( (drij(0,0) * termij) + (drik.row(0) % crossTerm) );
-  fj3[1] =  arma::accu( (drij(1,0) * termij) + (drik.row(1) % crossTerm) );
-  fj3[2] =  arma::accu( (drij(2,0) * termij) + (drik.row(2) % crossTerm) );
+  dEdRj3.row(0) =  (drij(0,0) * termij) + (drik.row(0) % crossTerm);
+  dEdRj3.row(1) =  (drij(1,0) * termij) + (drik.row(1) % crossTerm);
+  dEdRj3.row(2) =  (drij(2,0) * termij) + (drik.row(2) % crossTerm);
 
   // need all the different components of k's forces to do sum k > j
-  dEdR3.row(0) =  (drik.row(0) % termik) + (drij(0,0) * crossTerm);
-  dEdR3.row(1) =  (drik.row(1) % termik) + (drij(1,0) * crossTerm);
-  dEdR3.row(2) =  (drik.row(2) % termik) + (drij(2,0) * crossTerm);
+  dEdRk3.row(0) =  (drik.row(0) % termik) + (drij(0,0) * crossTerm);
+  dEdRk3.row(1) =  (drik.row(1) % termik) + (drij(1,0) * crossTerm);
+  dEdRk3.row(2) =  (drik.row(2) % termik) + (drij(2,0) * crossTerm);
 }
 
 void PairNNAngular2::compute(int eflag, int vflag)
@@ -404,6 +405,20 @@ void PairNNAngular2::compute(int eflag, int vflag)
     Rij = Rij.head_cols(neighbours);
     drij = drij.head_cols(neighbours);
 
+    /*if (myStep == 19) {
+      std::ofstream outfile;
+      outfile.open("Tests/TestEnergy/inputVector2.txt");
+      for (int p=0; p < arma::size(Rij)(1); p++){
+        outfile << std::setprecision(14) << drij(0,p) << " " << 
+        drij(1,p) << " " << drij(2,p) << " " <<
+        Rij(0,p) << " ";
+        cout << drij(0,p) << " " << drij(1,p) << " " << drij(2,p) << " " <<
+        Rij(0,p) << " ";}
+      outfile << endl;
+      cout << endl;
+      outfile.close();
+    }*/
+
     /*std::cout << "neighbours " << neighbours << std::endl;
     std::cout << "Rij: " << arma::size(Rij) << std::endl;
     std::cout << Rij << std::endl;
@@ -422,6 +437,9 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
     // apply NN to get energy
     evdwl = network(inputVector);
+    eatom[i] += evdwl;
+
+    // set energy manually (not use ev_tally for energy)
     eng_vdwl += evdwl;
 
     // backpropagate to obtain gradient of NN
@@ -435,7 +453,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
       if ( m_parameters[s].size() == 3 ) {
 
         arma::mat dG2(1,neighbours); // derivative of G2
-        double fj2[3];               // pair force
 
         // calculate cerivative of G2 for all pairs
         // pass dG2 by reference instead of coyping matrices
@@ -454,9 +471,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
           f[i][2] += fpair*drij(2,l);
 
           // NOT N3L NOW
-          //f[tagsj[l]][0] -= fpair*drij(0,l);
-          //f[tagsj[l]][1] -= fpair*drij(1,l);
-          //f[tagsj[l]][2] -= fpair*drij(2,l);
+          f[tagsj[l]][0] -= fpair*drij(0,l);
+          f[tagsj[l]][1] -= fpair*drij(1,l);
+          f[tagsj[l]][2] -= fpair*drij(2,l);
+
+          if (evflag) ev_tally_full(i, 0, 0, fpair,
+                                    drij(0,l), drij(1,l), drij(2,l));
         }
       }
 
@@ -467,8 +487,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
           int numberOfTriplets = arma::size(Riks[l])(1);
 
-          double fj3[3];  // triplet force for atom j
-          arma::mat dEdR3(3, numberOfTriplets); // triplet force for all atoms k
+          arma::mat dEdRj3(3, numberOfTriplets);
+          arma::mat dEdRk3(3, numberOfTriplets); // triplet force for all atoms k
 
           // calculate forces for all triplets (i,j,k) for this (i,j)
           // fj3 and dEdR3 is passed by reference
@@ -481,29 +501,50 @@ void PairNNAngular2::compute(int eflag, int vflag)
           dG4dR(Rij(0,l), Riks[l], Rjks[l], cosThetas[l],
                 m_parameters[s][0], m_parameters[s][1], 
                 m_parameters[s][2], m_parameters[s][3], 
-                dEdR3, fj3, drij.col(l), driks[l]); 
+                dEdRj3, dEdRk3, drij.col(l), driks[l]); 
 
           // N3L: add 3-body forces for i and k
+          double fj3[3];
+          double fk3[3];
           for (int m=0; m < numberOfTriplets; m++) {
-            f[tagsk[l][m]][0] -= dEdG(0,s) * dEdR3(0,m);
-            f[tagsk[l][m]][1] -= dEdG(0,s) * dEdR3(1,m);
-            f[tagsk[l][m]][2] -= dEdG(0,s) * dEdR3(2,m);
+
+            // triplet force j
+            fj3[0] = dEdG(0,s) * dEdRj3(0,m);
+            fj3[1] = dEdG(0,s) * dEdRj3(1,m);
+            fj3[2] = dEdG(0,s) * dEdRj3(2,m);
+
+            // triplet force k
+            fk3[0] = dEdG(0,s) * dEdRk3(0,m);
+            fk3[1] = dEdG(0,s) * dEdRk3(1,m);
+            fk3[2] = dEdG(0,s) * dEdRk3(2,m);
+
+            // add both j and k to atom i
+            f[i][0] += fj3[0] + fk3[0];
+            f[i][1] += fj3[1] + fk3[1];
+            f[i][2] += fj3[2] + fk3[2];
+
+            // add to atom j. Not N3L, but becuase
+            // every pair (i,j) is counted twice for triplets
+            f[tagsj[l]][0] -= fj3[0];
+            f[tagsj[l]][1] -= fj3[1];
+            f[tagsj[l]][2] -= fj3[2];
+
+            // add to atom k because of the sum k > j
+            f[tagsk[l][m]][0] -= fk3[0];
+            f[tagsk[l][m]][1] -= fk3[1];
+            f[tagsk[l][m]][2] -= fk3[2];
+
+            if (evflag) ev_tally3_nn(i, tagsj[l], tagsk[l][m],
+                                     fj3, fk3, 
+                                    -drij(0,l), -drij(1,l), -drij(2,l),
+                                    -driks[l](0,m), -driks[l](1,m), -driks[l](2,m));
           }
-
-          // add 3-body forces for i, sum of j and k-forces
-          f[i][0] += dEdG(0,s) * ( fj3[0] + arma::accu(dEdR3.row(0)) );
-          f[i][1] += dEdG(0,s) * ( fj3[1] + arma::accu(dEdR3.row(1)) );
-          f[i][2] += dEdG(0,s) * ( fj3[2] + arma::accu(dEdR3.row(2)) );
-
-          // N3L: add 3-body force for j. fj3 is sum of all triplet forces
-          f[tagsj[l]][0] -= dEdG(0,s) * fj3[0];
-          f[tagsj[l]][1] -= dEdG(0,s) * fj3[1];
-          f[tagsj[l]][2] -= dEdG(0,s) * fj3[2];
         }
       }
     }
   }
   if (vflag_fdotr) virial_fdotr_compute();
+  myStep++;
 }
 
 /* ---------------------------------------------------------------------- */

@@ -248,7 +248,7 @@ void PairSW::compute(int eflag, int vflag)
 
   // write neighbour lists every 100 steps
   if ( !(myStep % 10) ) {
-    std::cout << "Writing to file..." << std::endl;
+    //std::cout << "Writing to file..." << std::endl;
     outfile.open(filename.c_str(), std::ios::app);
 
     // Writing out a new file for each time step?

@@ -953,6 +953,8 @@ void Pair::ev_tally_full(int i, double evdwl, double ecoul, double fpair,
     if (eflag_atom) eatom[i] += 0.5 * (evdwl + ecoul);
   }
 
+  vflag_global = 1;
+
   if (vflag_either) {
     v[0] = 0.5*delx*delx*fpair;
     v[1] = 0.5*dely*dely*fpair;
@@ -962,6 +964,7 @@ void Pair::ev_tally_full(int i, double evdwl, double ecoul, double fpair,
     v[5] = 0.5*dely*delz*fpair;
 
     if (vflag_global) {
+      std::cout << "yes" << std::endl;
       virial[0] += v[0];
       virial[1] += v[1];
       virial[2] += v[2];
@@ -1159,6 +1162,47 @@ void Pair::ev_tally3(int i, int j, int k, double evdwl, double ecoul,
     v[3] = drji[0]*fj[1] + drki[0]*fk[1];
     v[4] = drji[0]*fj[2] + drki[0]*fk[2];
     v[5] = drji[1]*fj[2] + drki[1]*fk[2];
+
+    if (vflag_global) {
+      virial[0] += v[0];
+      virial[1] += v[1];
+      virial[2] += v[2];
+      virial[3] += v[3];
+      virial[4] += v[4];
+      virial[5] += v[5];
+    }
+
+    if (vflag_atom) {
+      vatom[i][0] += THIRD*v[0]; vatom[i][1] += THIRD*v[1];
+      vatom[i][2] += THIRD*v[2]; vatom[i][3] += THIRD*v[3];
+      vatom[i][4] += THIRD*v[4]; vatom[i][5] += THIRD*v[5];
+
+      vatom[j][0] += THIRD*v[0]; vatom[j][1] += THIRD*v[1];
+      vatom[j][2] += THIRD*v[2]; vatom[j][3] += THIRD*v[3];
+      vatom[j][4] += THIRD*v[4]; vatom[j][5] += THIRD*v[5];
+
+      vatom[k][0] += THIRD*v[0]; vatom[k][1] += THIRD*v[1];
+      vatom[k][2] += THIRD*v[2]; vatom[k][3] += THIRD*v[3];
+      vatom[k][4] += THIRD*v[4]; vatom[k][5] += THIRD*v[5];
+    }
+  }
+}
+
+void Pair::ev_tally3_nn(int i, int j, int k,
+                        double *fj, double *fk,
+                        double xij, double yij, double zij,
+                        double xik, double yik, double zik)
+{
+  double v[6];
+  vflag_global = 1;
+
+  if (vflag_either) {
+    v[0] = xij*fj[0] + xik*fk[0];
+    v[1] = yij*fj[1] + yik*fk[1];
+    v[2] = zij*fj[2] + zik*fk[2];
+    v[3] = xij*fj[1] + xik*fk[1];
+    v[4] = xij*fj[2] + xik*fk[2];
+    v[5] = yij*fj[2] + yik*fk[2];
 
     if (vflag_global) {
       virial[0] += v[0];
