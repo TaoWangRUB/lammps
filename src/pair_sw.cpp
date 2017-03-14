@@ -107,6 +107,14 @@ void PairSW::compute(int eflag, int vflag)
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
 
+  if (myStep == 0) pairForces.open("../TestNN/Tests/Forces/pairForcesSW.txt");
+  else pairForces.open("../TestNN/Tests/Forces/pairForcesSW.txt", std::ios::app);
+  pairForces << "Time step: " << myStep << std::endl;
+
+  if (myStep == 0) tripletForces.open("../TestNN/Tests/Forces/tripletForcesSW.txt");
+  tripletForces.open("../TestNN/Tests/Forces/tripletForcesSW.txt", std::ios::app);
+  tripletForces << "Time step: " << myStep << std::endl; 
+
   // loop over full neighbor list of my atoms
 
   for (ii = 0; ii < inum; ii++) {
@@ -157,6 +165,9 @@ void PairSW::compute(int eflag, int vflag)
       f[j][1] -= dely*fpair;
       f[j][2] -= delz*fpair;
 
+      pairForces << delx*fpair << " " << dely*fpair << " " << delz*fpair 
+      << std::endl;
+
       if (evflag) ev_tally(i,j,nlocal,newton_pair,
                            evdwl,0.0,fpair,delx,dely,delz);
     }
@@ -189,6 +200,9 @@ void PairSW::compute(int eflag, int vflag)
 
         threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                   rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
+
+        tripletForces << i << " " << -fj[0] << " " << -fj[1] << " " << -fj[2] << " "
+        << -fk[0] << " " << -fk[1] << " " << -fk[2] << std::endl;
 
         f[i][0] -= fj[0] + fk[0];
         f[i][1] -= fj[1] + fk[1];
@@ -303,6 +317,8 @@ void PairSW::compute(int eflag, int vflag)
     outfile.close();
   }
   myStep++;
+  pairForces.close();
+  tripletForces.close();
 }
 
 /* ---------------------------------------------------------------------- */

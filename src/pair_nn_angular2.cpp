@@ -267,6 +267,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
   double fxtmp,fytmp,fztmp;
 
+  if (myStep == 0) pairForces.open("Tests/Forces/pairForces.txt");
+  else pairForces.open("Tests/Forces/pairForces.txt", std::ios::app);
+  pairForces << "Time step: " << myStep << endl;
+
+  if (myStep == 0) tripletForces.open("Tests/Forces/tripletForces.txt");
+  tripletForces.open("Tests/Forces/tripletForces.txt", std::ios::app);
+  tripletForces << "Time step: " << myStep << endl; 
+
   // loop over full neighbor list of my atoms
   for (int ii = 0; ii < inum; ii++) {
     int i = ilist[ii];
@@ -470,6 +478,9 @@ void PairNNAngular2::compute(int eflag, int vflag)
           f[i][1] += fpair*drij(1,l);
           f[i][2] += fpair*drij(2,l);
 
+          pairForces << fpair*drij(0,l) << " " << fpair*drij(1,l) << 
+          " " << fpair*drij(2,l) << endl;
+
           // NOT N3L NOW
           f[tagsj[l]][0] -= fpair*drij(0,l);
           f[tagsj[l]][1] -= fpair*drij(1,l);
@@ -477,13 +488,16 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
           if (evflag) ev_tally_full(i, 0, 0, fpair,
                                     drij(0,l), drij(1,l), drij(2,l));
+          //if (evflag) ev_tally(i, tagsj[l], nlocal, newton_pair,
+          //                     0, 0, fpair,
+          //                     drij(0,l), drij(1,l), drij(2,l));
         }
       }
 
       // G4/G5: neighbours-1 triplet environments per symmetry function
       else {
-        
-        for (int l=0; l < neighbours-1; l++) {
+
+        for (int l=0; l < neighbours; l++) {
 
           int numberOfTriplets = arma::size(Riks[l])(1);
 
@@ -518,6 +532,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
             fk3[1] = dEdG(0,s) * dEdRk3(1,m);
             fk3[2] = dEdG(0,s) * dEdRk3(2,m);
 
+            tripletForces << i << " " << fj3[0] << " " << 
+            fj3[1] << " " << fj3[2] << " "
+            << fk3[0] << " " << fk3[1] << " " << fk3[2] << endl;
+
             // add both j and k to atom i
             f[i][0] += fj3[0] + fk3[0];
             f[i][1] += fj3[1] + fk3[1];
@@ -536,14 +554,16 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
             if (evflag) ev_tally3_nn(i, tagsj[l], tagsk[l][m],
                                      fj3, fk3, 
-                                    -drij(0,l), -drij(1,l), -drij(2,l),
-                                    -driks[l](0,m), -driks[l](1,m), -driks[l](2,m));
+                                     drij(0,l), drij(1,l), drij(2,l),
+                                     driks[l](0,m), driks[l](1,m), driks[l](2,m));
           }
         }
       }
     }
   }
   if (vflag_fdotr) virial_fdotr_compute();
+  pairForces.close();
+  tripletForces.close();
   myStep++;
 }
 

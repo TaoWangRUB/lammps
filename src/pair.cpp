@@ -954,6 +954,7 @@ void Pair::ev_tally_full(int i, double evdwl, double ecoul, double fpair,
   }
 
   vflag_global = 1;
+  vflag_either = 1;
 
   if (vflag_either) {
     v[0] = 0.5*delx*delx*fpair;
@@ -964,7 +965,6 @@ void Pair::ev_tally_full(int i, double evdwl, double ecoul, double fpair,
     v[5] = 0.5*dely*delz*fpair;
 
     if (vflag_global) {
-      std::cout << "yes" << std::endl;
       virial[0] += v[0];
       virial[1] += v[1];
       virial[2] += v[2];
@@ -1194,15 +1194,16 @@ void Pair::ev_tally3_nn(int i, int j, int k,
                         double xik, double yik, double zik)
 {
   double v[6];
+  vflag_either = 1;
   vflag_global = 1;
 
   if (vflag_either) {
-    v[0] = xij*fj[0] + xik*fk[0];
-    v[1] = yij*fj[1] + yik*fk[1];
-    v[2] = zij*fj[2] + zik*fk[2];
-    v[3] = xij*fj[1] + xik*fk[1];
-    v[4] = xij*fj[2] + xik*fk[2];
-    v[5] = yij*fj[2] + yik*fk[2];
+    v[0] = -xij*fj[0] - xik*fk[0];
+    v[1] = -yij*fj[1] - yik*fk[1];
+    v[2] = -zij*fj[2] - zik*fk[2];
+    v[3] = -xij*fj[1] - xik*fk[1];
+    v[4] = -xij*fj[2] - xik*fk[2];
+    v[5] = -yij*fj[2] - yik*fk[2];
 
     if (vflag_global) {
       virial[0] += v[0];

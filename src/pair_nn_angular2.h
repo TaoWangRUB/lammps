@@ -80,6 +80,8 @@ class PairNNAngular2 : public Pair {
   int m_numberOfParameters;
   const double m_pi = arma::datum::pi;
   int myStep = 0;
+  std::ofstream pairForces;
+  std::ofstream tripletForces;
 
   void allocate();
   void read_file(char *);
