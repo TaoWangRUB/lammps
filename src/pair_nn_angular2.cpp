@@ -277,8 +277,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
   // loop over full neighbor list of my atoms
   for (int ii = 0; ii < inum; ii++) {
+    
     int i = ilist[ii];
     tagint itag = tag[i];
+
     double xtmp = x[i][0];
     double ytmp = x[i][1];
     double ztmp = x[i][2];
@@ -452,6 +454,17 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation();
+
+    double fx2 = 0;
+    double fy2 = 0;
+    double fz2 = 0;
+
+    double fx3j = 0;
+    double fy3j = 0;
+    double fz3j = 0;
+    double fx3k = 0;
+    double fy3k = 0;
+    double fz3k = 0;
     
     // calculate forces by differentiating the symmetry functions
     // UNTRUE(?): dEdR(j) will be the force contribution from atom j on atom i
@@ -471,20 +484,24 @@ void PairNNAngular2::compute(int eflag, int vflag)
         // chain rule. all pair foces
         arma::mat fpairs = -dEdG(0,s) * dG2 / Rij;
 
+        //if (myStep == 0)
+        //    cout << fpairs << endl;
+
         // loop through all pairs for N3L
         for (int l=0; l < neighbours; l++) {
           double fpair = fpairs(0,l);
-          f[i][0] += fpair*drij(0,l);
-          f[i][1] += fpair*drij(1,l);
-          f[i][2] += fpair*drij(2,l);
+          fx2 += 2*fpair*drij(0,l);
+          fy2 += 2*fpair*drij(1,l);
+          fz2 += 2*fpair*drij(2,l);
 
-          pairForces << fpair*drij(0,l) << " " << fpair*drij(1,l) << 
-          " " << fpair*drij(2,l) << endl;
+        if (myStep == 0) {
+          //cout << fx2 << " " << fy2 << " " << fz2 << endl;
+        }
 
           // NOT N3L NOW
-          f[tagsj[l]][0] -= fpair*drij(0,l);
-          f[tagsj[l]][1] -= fpair*drij(1,l);
-          f[tagsj[l]][2] -= fpair*drij(2,l);
+          //f[tagsj[l]][0] -= fpair*drij(0,l);
+          //f[tagsj[l]][1] -= fpair*drij(1,l);
+          //f[tagsj[l]][2] -= fpair*drij(2,l);
 
           if (evflag) ev_tally_full(i, 0, 0, fpair,
                                     drij(0,l), drij(1,l), drij(2,l));
@@ -532,14 +549,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
             fk3[1] = dEdG(0,s) * dEdRk3(1,m);
             fk3[2] = dEdG(0,s) * dEdRk3(2,m);
 
-            tripletForces << i << " " << fj3[0] << " " << 
-            fj3[1] << " " << fj3[2] << " "
-            << fk3[0] << " " << fk3[1] << " " << fk3[2] << endl;
-
             // add both j and k to atom i
-            f[i][0] += fj3[0] + fk3[0];
-            f[i][1] += fj3[1] + fk3[1];
-            f[i][2] += fj3[2] + fk3[2];
+            fx3j += fj3[0];
+            fy3j += fj3[1];
+            fz3j += fj3[2];
+            fx3k += fk3[0];
+            fy3k += fk3[1];
+            fz3k += fk3[2];
+
 
             // add to atom j. Not N3L, but becuase
             // every pair (i,j) is counted twice for triplets
@@ -560,6 +577,20 @@ void PairNNAngular2::compute(int eflag, int vflag)
         }
       }
     }
+
+    // update forces
+    f[i][0] += fx2 + fx3j + fx3k;
+    f[i][1] += fy2 + fy3j + fy3k;
+    f[i][2] += fz2 + fz3j + fz3k;
+
+    // write total pair force on atom i to file
+    /*pairForces << i << " " << fx2 << " " << fy2 << 
+    " " << fz2 << endl;
+
+    // write total triplet force on atom i to file
+    tripletForces << i << " " << fx3j << " " << 
+    fy3j << " " << fz3j << " "
+    << fx3k << " " << fy3k << " " << fz3k << endl;*/
   }
   if (vflag_fdotr) virial_fdotr_compute();
   pairForces.close();

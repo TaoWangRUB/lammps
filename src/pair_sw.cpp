@@ -125,6 +125,10 @@ void PairSW::compute(int eflag, int vflag)
     ytmp = x[i][1];
     ztmp = x[i][2];
 
+    double fx2 = 0;
+    double fy2 = 0;
+    double fz2 = 0;
+
     // two-body interactions, skip half of them
 
     jlist = firstneigh[i];
@@ -158,14 +162,14 @@ void PairSW::compute(int eflag, int vflag)
 
       twobody(&params[ijparam],rsq,fpair,eflag,evdwl);
 
-      f[i][0] += delx*fpair;
-      f[i][1] += dely*fpair;
-      f[i][2] += delz*fpair;
+      fx2 += delx*fpair;
+      fy2 += dely*fpair;
+      fz2 += delz*fpair;
       f[j][0] -= delx*fpair;
       f[j][1] -= dely*fpair;
       f[j][2] -= delz*fpair;
 
-      pairForces << delx*fpair << " " << dely*fpair << " " << delz*fpair 
+      pairForces << i << " " << delx*fpair << " " << dely*fpair << " " << delz*fpair 
       << std::endl;
 
       if (evflag) ev_tally(i,j,nlocal,newton_pair,
@@ -173,6 +177,13 @@ void PairSW::compute(int eflag, int vflag)
     }
 
     jnumm1 = jnum - 1;
+
+    double fx3j = 0;
+    double fy3j = 0;
+    double fz3j = 0;
+    double fx3k = 0;
+    double fy3k = 0;
+    double fz3k = 0;
 
     for (jj = 0; jj < jnumm1; jj++) {
       j = jlist[jj];
@@ -204,9 +215,12 @@ void PairSW::compute(int eflag, int vflag)
         tripletForces << i << " " << -fj[0] << " " << -fj[1] << " " << -fj[2] << " "
         << -fk[0] << " " << -fk[1] << " " << -fk[2] << std::endl;
 
-        f[i][0] -= fj[0] + fk[0];
-        f[i][1] -= fj[1] + fk[1];
-        f[i][2] -= fj[2] + fk[2];
+        fx3j -= fj[0];
+        fy3j -= fj[1];
+        fz3j -= fj[2];
+        fx3k -= fk[0];
+        fy3k -= fk[1];
+        fz3k -= fk[2];
         f[j][0] += fj[0];
         f[j][1] += fj[1];
         f[j][2] += fj[2];
@@ -217,6 +231,20 @@ void PairSW::compute(int eflag, int vflag)
         if (evflag) ev_tally3(i,j,k,evdwl,0.0,fj,fk,delr1,delr2);
       }
     }
+
+    // update forces
+    f[i][0] += fx2 + fx3j + fx3k;
+    f[i][1] += fy2 + fy3j + fy3k;
+    f[i][2] += fz2 + fz3j + fz3k;
+
+    // write total pair force on atom i to file
+    pairForces << i << " " << fx2 << " " << fy2 << 
+    " " << fz2 << std::endl;
+
+    // write total triplet force on atom i to file
+    tripletForces << i << " " << fx3j << " " << 
+    fy3j << " " << fz3j << " "
+    << fx3k << " " << fy3k << " " << fz3k << std::endl;
   }
 
   if (vflag_fdotr) virial_fdotr_compute();
