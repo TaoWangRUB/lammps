@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pair_sw.h"
+#include "pair_mysw.h"
 #include "atom.h"
 #include "neighbor.h"
 #include "neigh_request.h"
@@ -31,14 +31,19 @@
 #include "memory.h"
 #include "error.h"
 
+#include <iostream>     // testing
+#include <time.h>       // time_t, struct tm, time, localtime, strftime
+#include <iomanip>
+
+
 using namespace LAMMPS_NS;
 
 #define MAXLINE 1024
 #define DELTA 4
 
-/* ---------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------------- */
 
-PairSW::PairSW(LAMMPS *lmp) : Pair(lmp)
+PairMySW::PairMySW(LAMMPS *lmp) : Pair(lmp)
 {
   single_enable = 0;
   restartinfo = 0;
@@ -51,16 +56,13 @@ PairSW::PairSW(LAMMPS *lmp) : Pair(lmp)
   params = NULL;
   elem2param = NULL;
   map = NULL;
-
-  maxshort = 10;
-  neighshort = NULL;
 }
 
 /* ----------------------------------------------------------------------
    check if allocated, since class can be destructed when incomplete
 ------------------------------------------------------------------------- */
 
-PairSW::~PairSW()
+PairMySW::~PairMySW()
 {
   if (copymode) return;
 
@@ -73,14 +75,13 @@ PairSW::~PairSW()
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(cutsq);
-    memory->destroy(neighshort);
     delete [] map;
   }
 }
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::compute(int eflag, int vflag)
+void PairMySW::compute(int eflag, int vflag)
 {
   int i,j,k,ii,jj,kk,inum,jnum,jnumm1;
   int itype,jtype,ktype,ijparam,ikparam,ijkparam;
@@ -106,7 +107,13 @@ void PairSW::compute(int eflag, int vflag)
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
 
-  double fxtmp,fytmp,fztmp;
+  if (myStep == 0) pairForces.open("../TestNN/Tests/Forces/pairForcesSW.txt");
+  else pairForces.open("../TestNN/Tests/Forces/pairForcesSW.txt", std::ios::app);
+  pairForces << "Time step: " << myStep << std::endl;
+
+  if (myStep == 0) tripletForces.open("../TestNN/Tests/Forces/tripletForcesSW.txt");
+  tripletForces.open("../TestNN/Tests/Forces/tripletForcesSW.txt", std::ios::app);
+  tripletForces << "Time step: " << myStep << std::endl; 
 
   // loop over full neighbor list of my atoms
 
@@ -117,36 +124,22 @@ void PairSW::compute(int eflag, int vflag)
     xtmp = x[i][0];
     ytmp = x[i][1];
     ztmp = x[i][2];
-    fxtmp = fytmp = fztmp = 0.0;
+
+    double fx2 = 0;
+    double fy2 = 0;
+    double fz2 = 0;
 
     // two-body interactions, skip half of them
 
     jlist = firstneigh[i];
     jnum = numneigh[i];
-    int numshort = 0;
 
     for (jj = 0; jj < jnum; jj++) {
+    
       j = jlist[jj];
       j &= NEIGHMASK;
-
-      delx = xtmp - x[j][0];
-      dely = ytmp - x[j][1];
-      delz = ztmp - x[j][2];
-      rsq = delx*delx + dely*dely + delz*delz;
-
-      jtype = map[type[j]];
-      ijparam = elem2param[itype][jtype][jtype];
-      if (rsq >= params[ijparam].cutsq) {
-        continue;
-      } else {
-        neighshort[numshort++] = j;
-        if (numshort >= maxshort) {
-          maxshort += maxshort/2;
-          memory->grow(neighshort,maxshort,"pair:neighshort");
-        }
-      }
-
       jtag = tag[j];
+
       if (itag > jtag) {
         if ((itag+jtag) % 2 == 0) continue;
       } else if (itag < jtag) {
@@ -157,35 +150,55 @@ void PairSW::compute(int eflag, int vflag)
         if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp) continue;
       }
 
+      jtype = map[type[j]];
+
+      delx = xtmp - x[j][0];
+      dely = ytmp - x[j][1];
+      delz = ztmp - x[j][2];
+      rsq = delx*delx + dely*dely + delz*delz;
+
+      ijparam = elem2param[itype][jtype][jtype];
+      if (rsq >= params[ijparam].cutsq) continue;
+
       twobody(&params[ijparam],rsq,fpair,eflag,evdwl);
 
-      fxtmp += delx*fpair;
-      fytmp += dely*fpair;
-      fztmp += delz*fpair;
+      fx2 += delx*fpair;
+      fy2 += dely*fpair;
+      fz2 += delz*fpair;
       f[j][0] -= delx*fpair;
       f[j][1] -= dely*fpair;
       f[j][2] -= delz*fpair;
+
+      pairForces << i << " " << delx*fpair << " " << dely*fpair << " " << delz*fpair 
+      << std::endl;
 
       if (evflag) ev_tally(i,j,nlocal,newton_pair,
                            evdwl,0.0,fpair,delx,dely,delz);
     }
 
-    jnumm1 = numshort - 1;
+    jnumm1 = jnum - 1;
+
+    double fx3j = 0;
+    double fy3j = 0;
+    double fz3j = 0;
+    double fx3k = 0;
+    double fy3k = 0;
+    double fz3k = 0;
 
     for (jj = 0; jj < jnumm1; jj++) {
-      j = neighshort[jj];
+      j = jlist[jj];
+      j &= NEIGHMASK;
       jtype = map[type[j]];
       ijparam = elem2param[itype][jtype][jtype];
       delr1[0] = x[j][0] - xtmp;
       delr1[1] = x[j][1] - ytmp;
       delr1[2] = x[j][2] - ztmp;
       rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
+      if (rsq1 >= params[ijparam].cutsq) continue;
 
-      double fjxtmp,fjytmp,fjztmp;
-      fjxtmp = fjytmp = fjztmp = 0.0;
-
-      for (kk = jj+1; kk < numshort; kk++) {
-        k = neighshort[kk];
+      for (kk = jj+1; kk < jnum; kk++) {
+        k = jlist[kk];
+        k &= NEIGHMASK;
         ktype = map[type[k]];
         ikparam = elem2param[itype][ktype][ktype];
         ijkparam = elem2param[itype][jtype][ktype];
@@ -194,52 +207,202 @@ void PairSW::compute(int eflag, int vflag)
         delr2[1] = x[k][1] - ytmp;
         delr2[2] = x[k][2] - ztmp;
         rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
+        if (rsq2 >= params[ikparam].cutsq) continue;
 
         threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                   rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
 
-        fxtmp -= fj[0] + fk[0];
-        fytmp -= fj[1] + fk[1];
-        fztmp -= fj[2] + fk[2];
-        fjxtmp += fj[0];
-        fjytmp += fj[1];
-        fjztmp += fj[2];
+        tripletForces << i << " " << -fj[0] << " " << -fj[1] << " " << -fj[2] << " "
+        << -fk[0] << " " << -fk[1] << " " << -fk[2] << std::endl;
+
+        fx3j -= fj[0];
+        fy3j -= fj[1];
+        fz3j -= fj[2];
+        fx3k -= fk[0];
+        fy3k -= fk[1];
+        fz3k -= fk[2];
+        f[j][0] += fj[0];
+        f[j][1] += fj[1];
+        f[j][2] += fj[2];
         f[k][0] += fk[0];
         f[k][1] += fk[1];
         f[k][2] += fk[2];
 
         if (evflag) ev_tally3(i,j,k,evdwl,0.0,fj,fk,delr1,delr2);
       }
-      f[j][0] += fjxtmp;
-      f[j][1] += fjytmp;
-      f[j][2] += fjztmp;
     }
-    f[i][0] += fxtmp;
-    f[i][1] += fytmp;
-    f[i][2] += fztmp;
+
+    // update forces
+    f[i][0] += fx2 + fx3j + fx3k;
+    f[i][1] += fy2 + fy3j + fy3k;
+    f[i][2] += fz2 + fz3j + fz3k;
+
+    // write total pair force on atom i to file
+    pairForces << i << " " << fx2 << " " << fy2 << 
+    " " << fz2 << std::endl;
+
+    // write total triplet force on atom i to file
+    tripletForces << i << " " << fx3j << " " << 
+    fy3j << " " << fz3j << " "
+    << fx3k << " " << fy3k << " " << fz3k << std::endl;
   }
 
   if (vflag_fdotr) virial_fdotr_compute();
+
+  // EDITING: output neighbour lists and energies
+  // after all computations are made
+  //outfile.open(filename.c_str(), std::ios::app);
+
+  // output distances to compute angular distribution
+  /*if (myStep == 0) {
+    randomAtom = inum/2;
+  }
+  
+  i = ilist[randomAtom];
+  double xi = x[i][0];
+  double yi = x[i][1];
+  double zi = x[i][2];
+
+  jlist = firstneigh[i];
+  jnum = numneigh[i];
+  for (jj = 0; jj < jnumm1; jj++) {
+    j = jlist[jj];
+    j &= NEIGHMASK;
+    jtag = tag[j];
+    jtype = map[type[j]];
+
+    delx = xi - x[j][0];
+    dely = yi - x[j][1];
+    delz = zi - x[j][2];
+
+    rsq = delx*delx + dely*dely + delz*delz;
+
+    ijparam = elem2param[itype][jtype][jtype];
+
+    if (rsq >= params[ijparam].cutsq) continue;
+
+    // save distance from central atom i to neighbour j
+    outfile << delx << " " << dely << " " << delz << " " << rsq << " ";
+  }
+  // store energy
+  outfile << std::endl;
+  outfile.close();*/
+
+  // write neighbour lists every 100 steps
+  if ( !(myStep % 10) ) {
+    //std::cout << "Writing to file..." << std::endl;
+    outfile.open(filename.c_str(), std::ios::app);
+
+    // Writing out a new file for each time step?
+    // No point...
+    //char buffer[20];
+    //sprintf(buffer, "/neighbours%d.txt", myStep); 
+    //std::string str(buffer);
+    //filename = dirName + str;
+
+    // sampling just a few configs for each time step
+    // because the system is quite homogeneous
+
+    // decide number of samples for each time step
+    int chosenAtom = 899;//inum/2;
+    for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
+  	  i = ilist[ii];
+  	  double xi = x[i][0];
+  	  double yi = x[i][1];
+  	  double zi = x[i][2];
+
+      if (myStep == 0)
+        std::cout << "Chosen atom: " << i << " " << xi << " " << yi << " " 
+                  << zi << " " << std::endl;
+
+  	  jlist = firstneigh[i];
+  	  jnum = numneigh[i];
+  	  for (jj = 0; jj < jnum; jj++) {
+  	    j = jlist[jj];
+  	    j &= NEIGHMASK;
+  	    jtag = tag[j];
+  	    jtype = map[type[j]];
+
+  	    delx = xi - x[j][0];
+  	    dely = yi - x[j][1];
+  	    delz = zi - x[j][2];
+
+  	    rsq = delx*delx + dely*dely + delz*delz;
+        
+
+  	    ijparam = elem2param[itype][jtype][jtype];
+
+  	    if (rsq >= params[ijparam].cutsq) continue;
+
+        // save positions of neighbour j relative to position
+        // of central atom i for use in training
+  	    outfile << std::setprecision(10) << delx << " " << dely << " " <<
+                   delz << " " << rsq << " ";
+  	  }
+      // store energy
+  		outfile << std::setprecision(10) << eatom[i] << std::endl;	
+  	}
+    outfile.close();
+  }
+  myStep++;
+  pairForces.close();
+  tripletForces.close();
 }
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::allocate()
+void PairMySW::allocate()
 {
   allocated = 1;
   int n = atom->ntypes;
 
   memory->create(setflag,n+1,n+1,"pair:setflag");
   memory->create(cutsq,n+1,n+1,"pair:cutsq");
-  memory->create(neighshort,maxshort,"pair:neighshort");
+
   map = new int[n+1];
+}
+
+void PairMySW::makeDirectory() 
+{
+  // make new folder named current time
+  time_t rawtime;
+  struct tm * timeinfo;
+  char buffer [15];
+
+  time (&rawtime);
+  timeinfo = localtime (&rawtime);
+
+  strftime (buffer,15,"%d.%m-%H.%M.%S", timeinfo);
+  std::string str(buffer);
+  dirName = "Data/" + str;
+
+  std::string command = "mkdir " + dirName;
+  if ( system(command.c_str()) ) 
+    std::cout << "Could not make directory" << std::endl;
+  filename = dirName + "/" + filename;
+  std::cout << "DIRNAME : " << dirName << std::endl;
+  std::cout << "FILENAME: " << filename << std::endl;
+
+  // copy input script and potential file to folder for reference
+  command = "cp bulkSi.in " + dirName;
+  if ( system(command.c_str()) ) 
+    std::cout << "Could not copy input script" << std::endl;
+  command = "cp ../../lammps/src/pair_mysw.cpp " + dirName;
+  if ( system(command.c_str()) ) 
+    std::cout << "Could not copy lammps script" << std::endl;
+
+  // trying to open file, check if file successfully opened
+  outfile.open(filename.c_str());
+  if ( !outfile.is_open() ) 
+    std::cout << "File is not opened" << std::endl;
+  outfile.close();
 }
 
 /* ----------------------------------------------------------------------
    global settings
 ------------------------------------------------------------------------- */
 
-void PairSW::settings(int narg, char **arg)
+void PairMySW::settings(int narg, char **arg)
 {
   if (narg != 0) error->all(FLERR,"Illegal pair_style command");
 }
@@ -248,14 +411,21 @@ void PairSW::settings(int narg, char **arg)
    set coeffs for one or more type pairs
 ------------------------------------------------------------------------- */
 
-void PairSW::coeff(int narg, char **arg)
+void PairMySW::coeff(int narg, char **arg)
 {
   int i,j,n;
 
   if (!allocated) allocate();
 
-  if (narg != 3 + atom->ntypes)
+  if (!(narg == 3 + atom->ntypes || narg == 3 + atom->ntypes + 1))
     error->all(FLERR,"Incorrect args for pair coefficients");
+
+  // EDIT: read filename argument if supplied
+  if (narg == 3 + atom->ntypes + 1) {
+    filename = arg[narg-1];
+    narg--;
+    makeDirectory();
+  }
 
   // insure I,J args are * *
 
@@ -302,7 +472,7 @@ void PairSW::coeff(int narg, char **arg)
   for (int i = 1; i <= n; i++)
     for (int j = i; j <= n; j++)
       setflag[i][j] = 0;
-
+  
   // set setflag i,j for type pairs where both are mapped to elements
 
   int count = 0;
@@ -320,7 +490,7 @@ void PairSW::coeff(int narg, char **arg)
    init specific to this pair style
 ------------------------------------------------------------------------- */
 
-void PairSW::init_style()
+void PairMySW::init_style()
 {
   if (atom->tag_enable == 0)
     error->all(FLERR,"Pair style Stillinger-Weber requires atom IDs");
@@ -338,7 +508,7 @@ void PairSW::init_style()
    init for one type pair i,j and corresponding j,i
 ------------------------------------------------------------------------- */
 
-double PairSW::init_one(int i, int j)
+double PairMySW::init_one(int i, int j)
 {
   if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
 
@@ -347,7 +517,7 @@ double PairSW::init_one(int i, int j)
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::read_file(char *file)
+void PairMySW::read_file(char *file)
 {
   int params_per_line = 14;
   char **words = new char*[params_per_line+1];
@@ -475,7 +645,7 @@ void PairSW::read_file(char *file)
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::setup_params()
+void PairMySW::setup_params()
 {
   int i,j,k,m,n;
   double rtmp;
@@ -552,7 +722,7 @@ void PairSW::setup_params()
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::twobody(Param *param, double rsq, double &fforce,
+void PairMySW::twobody(Param *param, double rsq, double &fforce,
                      int eflag, double &eng)
 {
   double r,rinvsq,rp,rq,rainv,rainvsq,expsrainv;
@@ -571,7 +741,7 @@ void PairSW::twobody(Param *param, double rsq, double &fforce,
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::threebody(Param *paramij, Param *paramik, Param *paramijk,
+void PairMySW::threebody(Param *paramij, Param *paramik, Param *paramijk,
                        double rsq1, double rsq2,
                        double *delr1, double *delr2,
                        double *fj, double *fk, int eflag, double &eng)

@@ -12,14 +12,15 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Aidan Thompson (SNL)
+   Contributing author:  Yongnan Xiong (HNU), xyn@hnu.edu.cn
+                         Aidan Thompson (SNL)
 ------------------------------------------------------------------------- */
 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pair_sw.h"
+#include "pair_myvashishta.h"
 #include "atom.h"
 #include "neighbor.h"
 #include "neigh_request.h"
@@ -31,6 +32,10 @@
 #include "memory.h"
 #include "error.h"
 
+#include <iostream>     // testing
+#include <time.h>       // time_t, struct tm, time, localtime, strftime
+#include <iomanip>
+
 using namespace LAMMPS_NS;
 
 #define MAXLINE 1024
@@ -38,7 +43,7 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairSW::PairSW(LAMMPS *lmp) : Pair(lmp)
+PairMyVashishta::PairMyVashishta(LAMMPS *lmp) : Pair(lmp)
 {
   single_enable = 0;
   restartinfo = 0;
@@ -52,6 +57,7 @@ PairSW::PairSW(LAMMPS *lmp) : Pair(lmp)
   elem2param = NULL;
   map = NULL;
 
+  r0max = 0.0;
   maxshort = 10;
   neighshort = NULL;
 }
@@ -60,10 +66,10 @@ PairSW::PairSW(LAMMPS *lmp) : Pair(lmp)
    check if allocated, since class can be destructed when incomplete
 ------------------------------------------------------------------------- */
 
-PairSW::~PairSW()
+PairMyVashishta::~PairMyVashishta()
 {
   if (copymode) return;
-
+  
   if (elements)
     for (int i = 0; i < nelements; i++) delete [] elements[i];
   delete [] elements;
@@ -80,7 +86,7 @@ PairSW::~PairSW()
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::compute(int eflag, int vflag)
+void PairMyVashishta::compute(int eflag, int vflag)
 {
   int i,j,k,ii,jj,kk,inum,jnum,jnumm1;
   int itype,jtype,ktype,ijparam,ikparam,ijkparam;
@@ -100,6 +106,7 @@ void PairSW::compute(int eflag, int vflag)
   int *type = atom->type;
   int nlocal = atom->nlocal;
   int newton_pair = force->newton_pair;
+  const double cutshortsq = r0max*r0max;
 
   inum = list->inum;
   ilist = list->ilist;
@@ -134,11 +141,7 @@ void PairSW::compute(int eflag, int vflag)
       delz = ztmp - x[j][2];
       rsq = delx*delx + dely*dely + delz*delz;
 
-      jtype = map[type[j]];
-      ijparam = elem2param[itype][jtype][jtype];
-      if (rsq >= params[ijparam].cutsq) {
-        continue;
-      } else {
+      if (rsq < cutshortsq) {
         neighshort[numshort++] = j;
         if (numshort >= maxshort) {
           maxshort += maxshort/2;
@@ -157,6 +160,10 @@ void PairSW::compute(int eflag, int vflag)
         if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp) continue;
       }
 
+      jtype = map[type[j]];
+      ijparam = elem2param[itype][jtype][jtype];
+      if (rsq >= params[ijparam].cutsq) continue;
+
       twobody(&params[ijparam],rsq,fpair,eflag,evdwl);
 
       fxtmp += delx*fpair;
@@ -167,7 +174,7 @@ void PairSW::compute(int eflag, int vflag)
       f[j][2] -= delz*fpair;
 
       if (evflag) ev_tally(i,j,nlocal,newton_pair,
-                           evdwl,0.0,fpair,delx,dely,delz);
+      			   evdwl,0.0,fpair,delx,dely,delz);
     }
 
     jnumm1 = numshort - 1;
@@ -180,6 +187,7 @@ void PairSW::compute(int eflag, int vflag)
       delr1[1] = x[j][1] - ytmp;
       delr1[2] = x[j][2] - ztmp;
       rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
+      if (rsq1 >= params[ijparam].cutsq2) continue;
 
       double fjxtmp,fjytmp,fjztmp;
       fjxtmp = fjytmp = fjztmp = 0.0;
@@ -194,6 +202,7 @@ void PairSW::compute(int eflag, int vflag)
         delr2[1] = x[k][1] - ytmp;
         delr2[2] = x[k][2] - ztmp;
         rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
+        if (rsq2 >= params[ikparam].cutsq2) continue;
 
         threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                   rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
@@ -220,11 +229,110 @@ void PairSW::compute(int eflag, int vflag)
   }
 
   if (vflag_fdotr) virial_fdotr_compute();
+
+
+
+  // write neighbour lists every 100 steps
+  if ( !(myStep % 10) ) {
+    //std::cout << "Writing to file..." << std::endl;
+    outfile.open(filename.c_str(), std::ios::app);
+
+    // Writing out a new file for each time step?
+    // No point...
+    //char buffer[20];
+    //sprintf(buffer, "/neighbours%d.txt", myStep); 
+    //std::string str(buffer);
+    //filename = dirName + str;
+
+    // sampling just a few configs for each time step
+    // because the system is quite homogeneous
+
+    // decide number of samples for each time step
+    int chosenAtom = 300;
+    for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
+      i = ilist[ii];
+      double xi = x[i][0];
+      double yi = x[i][1];
+      double zi = x[i][2];
+
+      if (myStep == 0)
+        std::cout << "Chosen atom: " << i << " " << xi << " " << yi << " " 
+                  << zi << " " << std::endl;
+
+      jlist = firstneigh[i];
+      jnum = numneigh[i];
+      for (jj = 0; jj < jnum; jj++) {
+        j = jlist[jj];
+        j &= NEIGHMASK;
+        jtag = tag[j];
+        jtype = map[type[j]];
+
+        delx = xi - x[j][0];
+        dely = yi - x[j][1];
+        delz = zi - x[j][2];
+
+        rsq = delx*delx + dely*dely + delz*delz;
+        
+        ijparam = elem2param[itype][jtype][jtype];
+
+        if (rsq >= params[ijparam].cutsq) continue;
+
+        // save positions of neighbour j relative to position
+        // of central atom i for use in training
+        outfile << std::setprecision(10) << delx << " " << dely << " " <<
+                   delz << " " << rsq << " ";
+      }
+      // store energy
+      outfile << std::setprecision(10) << eatom[i] << std::endl;  
+    }
+    outfile.close();
+  }
+  myStep++;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::allocate()
+void PairMyVashishta::makeDirectory() 
+{
+  // make new folder named current time
+  time_t rawtime;
+  struct tm * timeinfo;
+  char buffer [15];
+
+  time (&rawtime);
+  timeinfo = localtime (&rawtime);
+
+  strftime (buffer,15,"%d.%m-%H.%M.%S", timeinfo);
+  std::string str(buffer);
+  dirName = "Data/" + str;
+
+  std::string command = "mkdir " + dirName;
+  if ( system(command.c_str()) ) 
+    std::cout << "Could not make directory" << std::endl;
+  filename1 = dirName + "/pairs.txt";
+  filename2 = dirName + "/triplets.txt";
+  std::cout << "DIRNAME : " << dirName << std::endl;
+  std::cout << "FILENAME1: " << filename1 << std::endl;
+  std::cout << "FILENAME2: " << filename2 << std::endl;
+
+  // copy input script and potential file to folder for reference
+  command = "cp SiO2.vashishta.in " + dirName;
+  if ( system(command.c_str()) ) 
+    std::cout << "Could not copy input script" << std::endl;
+  command = "cp ../../lammps/src/pair_myvashishta.cpp " + dirName;
+  if ( system(command.c_str()) ) 
+    std::cout << "Could not copy lammps script" << std::endl;
+
+  // trying to open file, check if file successfully opened
+  outfile.open(filename.c_str());
+  if ( !outfile.is_open() ) 
+    std::cout << "File is not opened" << std::endl;
+  outfile.close();
+}
+
+/* ---------------------------------------------------------------------- */
+
+void PairMyVashishta::allocate()
 {
   allocated = 1;
   int n = atom->ntypes;
@@ -232,6 +340,7 @@ void PairSW::allocate()
   memory->create(setflag,n+1,n+1,"pair:setflag");
   memory->create(cutsq,n+1,n+1,"pair:cutsq");
   memory->create(neighshort,maxshort,"pair:neighshort");
+
   map = new int[n+1];
 }
 
@@ -239,7 +348,7 @@ void PairSW::allocate()
    global settings
 ------------------------------------------------------------------------- */
 
-void PairSW::settings(int narg, char **arg)
+void PairMyVashishta::settings(int narg, char **arg)
 {
   if (narg != 0) error->all(FLERR,"Illegal pair_style command");
 }
@@ -248,7 +357,7 @@ void PairSW::settings(int narg, char **arg)
    set coeffs for one or more type pairs
 ------------------------------------------------------------------------- */
 
-void PairSW::coeff(int narg, char **arg)
+void PairMyVashishta::coeff(int narg, char **arg)
 {
   int i,j,n;
 
@@ -266,6 +375,9 @@ void PairSW::coeff(int narg, char **arg)
   // map[i] = which element the Ith atom type is, -1 if NULL
   // nelements = # of unique elements
   // elements = list of element names
+
+  // EDIT
+  makeDirectory();
 
   if (elements) {
     for (i = 0; i < nelements; i++) delete [] elements[i];
@@ -320,16 +432,16 @@ void PairSW::coeff(int narg, char **arg)
    init specific to this pair style
 ------------------------------------------------------------------------- */
 
-void PairSW::init_style()
+void PairMyVashishta::init_style()
 {
   if (atom->tag_enable == 0)
-    error->all(FLERR,"Pair style Stillinger-Weber requires atom IDs");
+    error->all(FLERR,"Pair style Vashishta requires atom IDs");
   if (force->newton_pair == 0)
-    error->all(FLERR,"Pair style Stillinger-Weber requires newton pair on");
+    error->all(FLERR,"Pair style Vashishta requires newton pair on");
 
   // need a full neighbor list
 
-  int irequest = neighbor->request(this,instance_me);
+  int irequest = neighbor->request(this);
   neighbor->requests[irequest]->half = 0;
   neighbor->requests[irequest]->full = 1;
 }
@@ -338,7 +450,7 @@ void PairSW::init_style()
    init for one type pair i,j and corresponding j,i
 ------------------------------------------------------------------------- */
 
-double PairSW::init_one(int i, int j)
+double PairMyVashishta::init_one(int i, int j)
 {
   if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
 
@@ -347,9 +459,9 @@ double PairSW::init_one(int i, int j)
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::read_file(char *file)
+void PairMyVashishta::read_file(char *file)
 {
-  int params_per_line = 14;
+  int params_per_line = 17;
   char **words = new char*[params_per_line+1];
 
   memory->sfree(params);
@@ -363,7 +475,7 @@ void PairSW::read_file(char *file)
     fp = force->open_potential(file);
     if (fp == NULL) {
       char str[128];
-      sprintf(str,"Cannot open Stillinger-Weber potential file %s",file);
+      sprintf(str,"Cannot open Vashishta potential file %s",file);
       error->one(FLERR,str);
     }
   }
@@ -415,7 +527,7 @@ void PairSW::read_file(char *file)
     }
 
     if (nwords != params_per_line)
-      error->all(FLERR,"Incorrect format in Stillinger-Weber potential file");
+      error->all(FLERR,"Incorrect format in Vashishta potential file");
 
     // words = ptrs to all words in line
 
@@ -448,24 +560,28 @@ void PairSW::read_file(char *file)
     params[nparams].ielement = ielement;
     params[nparams].jelement = jelement;
     params[nparams].kelement = kelement;
-    params[nparams].epsilon = atof(words[3]);
-    params[nparams].sigma = atof(words[4]);
-    params[nparams].littlea = atof(words[5]);
-    params[nparams].lambda = atof(words[6]);
-    params[nparams].gamma = atof(words[7]);
-    params[nparams].costheta = atof(words[8]);
-    params[nparams].biga = atof(words[9]);
-    params[nparams].bigb = atof(words[10]);
-    params[nparams].powerp = atof(words[11]);
-    params[nparams].powerq = atof(words[12]);
-    params[nparams].tol = atof(words[13]);
+    params[nparams].bigh = atof(words[3]);
+    params[nparams].eta = atof(words[4]);
+    params[nparams].zi = atof(words[5]);
+    params[nparams].zj = atof(words[6]);
+    params[nparams].lambda1 = atof(words[7]);
+    params[nparams].bigd = atof(words[8]);
+    params[nparams].lambda4 = atof(words[9]);
+    params[nparams].bigw = atof(words[10]);
+    params[nparams].cut = atof(words[11]);
+    params[nparams].bigb = atof(words[12]);
+    params[nparams].gamma = atof(words[13]);
+    params[nparams].r0 = atof(words[14]);
+    params[nparams].bigc = atof(words[15]);
+    params[nparams].costheta = atof(words[16]);
 
-    if (params[nparams].epsilon < 0.0 || params[nparams].sigma < 0.0 ||
-        params[nparams].littlea < 0.0 || params[nparams].lambda < 0.0 ||
-        params[nparams].gamma < 0.0 || params[nparams].biga < 0.0 ||
-        params[nparams].bigb < 0.0 || params[nparams].powerp < 0.0 ||
-        params[nparams].powerq < 0.0 || params[nparams].tol < 0.0)
-      error->all(FLERR,"Illegal Stillinger-Weber parameter");
+    if (params[nparams].bigb < 0.0 || params[nparams].gamma < 0.0 ||
+        params[nparams].r0 < 0.0 || params[nparams].bigc < 0.0 ||
+        params[nparams].bigh < 0.0 || params[nparams].eta < 0.0 ||
+        params[nparams].lambda1 < 0.0 || params[nparams].bigd < 0.0 ||
+        params[nparams].lambda4 < 0.0 || params[nparams].bigw < 0.0 ||
+        params[nparams].cut < 0.0)
+      error->all(FLERR,"Illegal Vashishta parameter");
 
     nparams++;
   }
@@ -475,10 +591,9 @@ void PairSW::read_file(char *file)
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::setup_params()
+void PairMyVashishta::setup_params()
 {
   int i,j,k,m,n;
-  double rtmp;
 
   // set elem2param for all triplet combinations
   // must be a single exact match to lines read from file
@@ -502,96 +617,111 @@ void PairSW::setup_params()
         elem2param[i][j][k] = n;
       }
 
-
   // compute parameter values derived from inputs
 
   // set cutsq using shortcut to reduce neighbor list for accelerated
   // calculations. cut must remain unchanged as it is a potential parameter
-  // (cut = a*sigma)
+  double tmp_par;
 
   for (m = 0; m < nparams; m++) {
-    params[m].cut = params[m].sigma*params[m].littlea;
+    params[m].cutsq = params[m].cut * params[m].cut;
+    params[m].cutsq2 = params[m].r0 * params[m].r0;
 
-    rtmp = params[m].cut;
-    if (params[m].tol > 0.0) {
-      if (params[m].tol > 0.01) params[m].tol = 0.01;
-      if (params[m].gamma < 1.0)
-        rtmp = rtmp +
-          params[m].gamma * params[m].sigma / log(params[m].tol);
-      else rtmp = rtmp +
-             params[m].sigma / log(params[m].tol);
-    }
-    params[m].cutsq = rtmp * rtmp;
+    tmp_par = params[m].lambda1;
+    params[m].lam1inv = (tmp_par == 0.0) ? 0.0 : 1.0/tmp_par;
+    tmp_par = params[m].lambda4;
+    params[m].lam4inv = (tmp_par == 0.0) ? 0.0 : 1.0/tmp_par;
+    params[m].zizj = params[m].zi*params[m].zj * force->qqr2e;
+    // note that bigd does not have 1/2 factor
+    params[m].mbigd = params[m].bigd;
+    params[m].heta = params[m].bigh*params[m].eta;
+    params[m].big2b = 2.0*params[m].bigb;
+    params[m].big6w = 6.0*params[m].bigw;
 
-    params[m].sigma_gamma = params[m].sigma*params[m].gamma;
-    params[m].lambda_epsilon = params[m].lambda*params[m].epsilon;
-    params[m].lambda_epsilon2 = 2.0*params[m].lambda*params[m].epsilon;
-    params[m].c1 = params[m].biga*params[m].epsilon *
-      params[m].powerp*params[m].bigb *
-      pow(params[m].sigma,params[m].powerp);
-    params[m].c2 = params[m].biga*params[m].epsilon*params[m].powerq *
-      pow(params[m].sigma,params[m].powerq);
-    params[m].c3 = params[m].biga*params[m].epsilon*params[m].bigb *
-      pow(params[m].sigma,params[m].powerp+1.0);
-    params[m].c4 = params[m].biga*params[m].epsilon *
-      pow(params[m].sigma,params[m].powerq+1.0);
-    params[m].c5 = params[m].biga*params[m].epsilon*params[m].bigb *
-      pow(params[m].sigma,params[m].powerp);
-    params[m].c6 = params[m].biga*params[m].epsilon *
-      pow(params[m].sigma,params[m].powerq);
+    tmp_par = params[m].cut;
+    params[m].rcinv =  (tmp_par == 0.0) ? 0.0 : 1.0/tmp_par;
+    params[m].rc2inv = params[m].rcinv*params[m].rcinv;
+    params[m].rc4inv = params[m].rc2inv*params[m].rc2inv;
+    params[m].rc6inv = params[m].rc2inv*params[m].rc4inv;
+    params[m].rceta = pow(params[m].rcinv,params[m].eta);
+    params[m].lam1rc = params[m].cut*params[m].lam1inv;
+    params[m].lam4rc = params[m].cut*params[m].lam4inv;
+    params[m].vrcc2 = params[m].zizj*params[m].rcinv *
+      exp(-params[m].lam1rc);
+    params[m].vrcc3 = params[m].mbigd*params[m].rc4inv *
+      exp(-params[m].lam4rc);
+    params[m].vrc = params[m].bigh*params[m].rceta +
+      params[m].vrcc2 - params[m].vrcc3 -
+      params[m].bigw*params[m].rc6inv;
+
+    params[m].dvrc =
+      params[m].vrcc3 * (4.0*params[m].rcinv+params[m].lam4inv)
+      + params[m].big6w * params[m].rc6inv * params[m].rcinv
+      - params[m].heta * params[m].rceta*params[m].rcinv
+      - params[m].vrcc2 * (params[m].rcinv+params[m].lam1inv);
+    params[m].c0 = params[m].cut*params[m].dvrc - params[m].vrc;
   }
 
-  // set cutmax to max of all params
+  // set cutmax to max of all cutoff params. r0max only for r0
 
   cutmax = 0.0;
+  r0max = 0.0;
   for (m = 0; m < nparams; m++) {
-    rtmp = sqrt(params[m].cutsq);
-    if (rtmp > cutmax) cutmax = rtmp;
+    if (params[m].cut > cutmax) cutmax = params[m].cut;
+    if (params[m].r0 > r0max) r0max = params[m].r0;
   }
+  if (r0max > cutmax) cutmax = r0max;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::twobody(Param *param, double rsq, double &fforce,
-                     int eflag, double &eng)
+void PairMyVashishta::twobody(Param *param, double rsq, double &fforce,
+                            int eflag, double &eng)
 {
-  double r,rinvsq,rp,rq,rainv,rainvsq,expsrainv;
+  double r,rinvsq,r4inv,r6inv,reta,lam1r,lam4r,vc2,vc3;
 
   r = sqrt(rsq);
   rinvsq = 1.0/rsq;
-  rp = pow(r,-param->powerp);
-  rq = pow(r,-param->powerq);
-  rainv = 1.0 / (r - param->cut);
-  rainvsq = rainv*rainv*r;
-  expsrainv = exp(param->sigma * rainv);
-  fforce = (param->c1*rp - param->c2*rq +
-            (param->c3*rp -param->c4*rq) * rainvsq) * expsrainv * rinvsq;
-  if (eflag) eng = (param->c5*rp - param->c6*rq) * expsrainv;
+  r4inv = rinvsq*rinvsq;
+  r6inv = rinvsq*r4inv;
+  reta = pow(r,-param->eta);
+  lam1r = r*param->lam1inv;
+  lam4r = r*param->lam4inv;
+  vc2 = param->zizj * exp(-lam1r)/r;
+  vc3 = param->mbigd * r4inv*exp(-lam4r);
+
+  fforce = (param->dvrc*r
+	    - (4.0*vc3 + lam4r*vc3+param->big6w*r6inv
+	       - param->heta*reta - vc2 - lam1r*vc2)
+	    ) * rinvsq;
+  if (eflag) eng = param->bigh*reta
+	       + vc2 - vc3 - param->bigw*r6inv
+	       - r*param->dvrc + param->c0;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void PairSW::threebody(Param *paramij, Param *paramik, Param *paramijk,
+void PairMyVashishta::threebody(Param *paramij, Param *paramik, Param *paramijk,
                        double rsq1, double rsq2,
                        double *delr1, double *delr2,
                        double *fj, double *fk, int eflag, double &eng)
 {
   double r1,rinvsq1,rainv1,gsrainv1,gsrainvsq1,expgsrainv1;
   double r2,rinvsq2,rainv2,gsrainv2,gsrainvsq2,expgsrainv2;
-  double rinv12,cs,delcs,delcssq,facexp,facrad,frad1,frad2;
+  double rinv12,cs,delcs,delcssq,facexp,facrad,frad1,frad2,pcsinv,pcsinvsq,pcs;
   double facang,facang12,csfacang,csfac1,csfac2;
 
   r1 = sqrt(rsq1);
   rinvsq1 = 1.0/rsq1;
-  rainv1 = 1.0/(r1 - paramij->cut);
-  gsrainv1 = paramij->sigma_gamma * rainv1;
+  rainv1 = 1.0/(r1 - paramij->r0);
+  gsrainv1 = paramij->gamma * rainv1;
   gsrainvsq1 = gsrainv1*rainv1/r1;
   expgsrainv1 = exp(gsrainv1);
 
   r2 = sqrt(rsq2);
   rinvsq2 = 1.0/rsq2;
-  rainv2 = 1.0/(r2 - paramik->cut);
-  gsrainv2 = paramik->sigma_gamma * rainv2;
+  rainv2 = 1.0/(r2 - paramik->r0);
+  gsrainv2 = paramik->gamma * rainv2;
   gsrainvsq2 = gsrainv2*rainv2/r2;
   expgsrainv2 = exp(gsrainv2);
 
@@ -599,16 +729,16 @@ void PairSW::threebody(Param *paramij, Param *paramik, Param *paramijk,
   cs = (delr1[0]*delr2[0] + delr1[1]*delr2[1] + delr1[2]*delr2[2]) * rinv12;
   delcs = cs - paramijk->costheta;
   delcssq = delcs*delcs;
+  pcsinv = paramijk->bigc*delcssq + 1.0;
+  pcsinvsq = pcsinv*pcsinv;
+  pcs = delcssq/pcsinv;
 
   facexp = expgsrainv1*expgsrainv2;
 
-  // facrad = sqrt(paramij->lambda_epsilon*paramik->lambda_epsilon) *
-  //          facexp*delcssq;
-
-  facrad = paramijk->lambda_epsilon * facexp*delcssq;
+  facrad = paramijk->bigb * facexp * pcs;
   frad1 = facrad*gsrainvsq1;
   frad2 = facrad*gsrainvsq2;
-  facang = paramijk->lambda_epsilon2 * facexp*delcs;
+  facang = paramijk->big2b * facexp * delcs/pcsinvsq;
   facang12 = rinv12*facang;
   csfacang = cs*facang;
   csfac1 = rinvsq1*csfacang;

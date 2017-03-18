@@ -13,21 +13,24 @@
 
 #ifdef PAIR_CLASS
 
-PairStyle(sw,PairSW)
+PairStyle(mysw,PairMySW)
 
 #else
 
-#ifndef LMP_PAIR_SW_H
-#define LMP_PAIR_SW_H
+#ifndef LMP_PAIR_MYSW_H
+#define LMP_PAIR_MYSW_H
 
 #include "pair.h"
 
+#include <fstream>
+#include <string>
+
 namespace LAMMPS_NS {
 
-class PairSW : public Pair {
+class PairMySW : public Pair {
  public:
-  PairSW(class LAMMPS *);
-  virtual ~PairSW();
+  PairMySW(class LAMMPS *);
+  virtual ~PairMySW();
   virtual void compute(int, int);
   void settings(int, char **);
   virtual void coeff(int, char **);
@@ -55,8 +58,16 @@ class PairSW : public Pair {
   int nparams;                  // # of stored parameter sets
   int maxparam;                 // max # of parameter sets
   Param *params;                // parameter set for an I-J-K interaction
-  int maxshort;                 // size of short neighbor list array
-  int *neighshort;              // short neighbor list array
+
+  // EDIT: file for neighbour storage
+  std::string filename;
+  std::string dirName;
+  std::ofstream outfile;
+  int myStep = 0;
+  int randomAtom;
+  std::ofstream pairForces;
+  std::ofstream tripletForces;
+  void makeDirectory();
 
   virtual void allocate();
   void read_file(char *);
@@ -85,11 +96,11 @@ Self-explanatory.  Check the input script or data file.
 
 E: Pair style Stillinger-Weber requires atom IDs
 
-This is a requirement to use the SW potential.
+This is a requirement to use the mysw potential.
 
 E: Pair style Stillinger-Weber requires newton pair on
 
-See the newton command.  This is a restriction to use the SW
+See the newton command.  This is a restriction to use the mysw
 potential.
 
 E: All pair coeffs are not set
@@ -99,7 +110,7 @@ pair_coeff command before running a simulation.
 
 E: Cannot open Stillinger-Weber potential file %s
 
-The specified SW potential file cannot be opened.  Check that the path
+The specified mysw potential file cannot be opened.  Check that the path
 and name are correct.
 
 E: Incorrect format in Stillinger-Weber potential file

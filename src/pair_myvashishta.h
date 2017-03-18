@@ -13,39 +13,40 @@
 
 #ifdef PAIR_CLASS
 
-PairStyle(sw,PairSW)
+PairStyle(myvashishta,PairMyVashishta)
 
 #else
 
-#ifndef LMP_PAIR_SW_H
-#define LMP_PAIR_SW_H
+#ifndef LMP_PAIR_MYVASHISHITA_H
+#define LMP_PAIR_MYVASHISHITA_H
 
 #include "pair.h"
 
+#include <fstream>
+#include <string>
+
 namespace LAMMPS_NS {
 
-class PairSW : public Pair {
+class PairMyVashishta : public Pair {
  public:
-  PairSW(class LAMMPS *);
-  virtual ~PairSW();
+  PairMyVashishta(class LAMMPS *);
+  virtual ~PairMyVashishta();
   virtual void compute(int, int);
-  void settings(int, char **);
-  virtual void coeff(int, char **);
-  virtual double init_one(int, int);
-  virtual void init_style();
+  virtual void settings(int, char **);
+  void coeff(int, char **);
+  double init_one(int, int);
+  void init_style();
 
   struct Param {
-    double epsilon,sigma;
-    double littlea,lambda,gamma,costheta;
-    double biga,bigb;
-    double powerp,powerq;
-    double tol;
-    double cut,cutsq;
-    double sigma_gamma,lambda_epsilon,lambda_epsilon2;
-    double c1,c2,c3,c4,c5,c6;
+    double bigb,gamma,r0,bigc,costheta;
+    double bigh,eta,zi,zj;
+    double lambda1,bigd,mbigd,lambda4,bigw,cut;
+    double lam1inv,lam4inv,zizj,heta,big2b,big6w;
+    double rcinv,rc2inv,rc4inv,rc6inv,rceta;
+    double cutsq2,cutsq;
+    double lam1rc,lam4rc,vrcc2,vrcc3,vrc,dvrc,c0;
     int ielement,jelement,kelement;
   };
-
  protected:
   double cutmax;                // max cutoff for all elements
   int nelements;                // # of unique elements
@@ -55,10 +56,20 @@ class PairSW : public Pair {
   int nparams;                  // # of stored parameter sets
   int maxparam;                 // max # of parameter sets
   Param *params;                // parameter set for an I-J-K interaction
+  double r0max;                 // largest value of r0
   int maxshort;                 // size of short neighbor list array
   int *neighshort;              // short neighbor list array
 
-  virtual void allocate();
+  // EDIT
+  void makeDirectory();
+  std::string filename1;
+  std::string filename2;
+  std::string dirName;
+  std::ofstream outfile;
+  int myStep = 0;
+  int randomAtom;
+
+  void allocate();
   void read_file(char *);
   virtual void setup_params();
   void twobody(Param *, double, double &, int, double &);
@@ -83,13 +94,13 @@ E: Incorrect args for pair coefficients
 
 Self-explanatory.  Check the input script or data file.
 
-E: Pair style Stillinger-Weber requires atom IDs
+E: Pair style Vashishta requires atom IDs
 
-This is a requirement to use the SW potential.
+This is a requirement to use the Vashishta potential.
 
-E: Pair style Stillinger-Weber requires newton pair on
+E: Pair style Vashishta requires newton pair on
 
-See the newton command.  This is a restriction to use the SW
+See the newton command.  This is a restriction to use the Vashishta
 potential.
 
 E: All pair coeffs are not set
@@ -97,16 +108,16 @@ E: All pair coeffs are not set
 All pair coefficients must be set in the data file or by the
 pair_coeff command before running a simulation.
 
-E: Cannot open Stillinger-Weber potential file %s
+E: Cannot open Vashishta potential file %s
 
-The specified SW potential file cannot be opened.  Check that the path
+The specified Vashishta potential file cannot be opened.  Check that the path
 and name are correct.
 
-E: Incorrect format in Stillinger-Weber potential file
+E: Incorrect format in Vashishta potential file
 
 Incorrect number of words per line in the potential file.
 
-E: Illegal Stillinger-Weber parameter
+E: Illegal Vashishta parameter
 
 One or more of the coefficients defined in the potential file is
 invalid.
