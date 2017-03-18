@@ -121,6 +121,7 @@ void PairMyVashishta::compute(int eflag, int vflag)
     i = ilist[ii];
     itag = tag[i];
     itype = map[type[i]];
+    std::cout << itype << std::endl;
     xtmp = x[i][0];
     ytmp = x[i][1];
     ztmp = x[i][2];
@@ -234,29 +235,26 @@ void PairMyVashishta::compute(int eflag, int vflag)
 
   // write neighbour lists every 100 steps
   if ( !(myStep % 10) ) {
-    //std::cout << "Writing to file..." << std::endl;
-    outfile.open(filename.c_str(), std::ios::app);
 
-    // Writing out a new file for each time step?
-    // No point...
-    //char buffer[20];
-    //sprintf(buffer, "/neighbours%d.txt", myStep); 
-    //std::string str(buffer);
-    //filename = dirName + str;
+    //outfile1.open(filename1.c_str(), std::ios::app);
+    //outfile2.open(filename2.c_str(), std::ios::app);
 
     // sampling just a few configs for each time step
     // because the system is quite homogeneous
 
     // decide number of samples for each time step
-    int chosenAtom = 300;
-    for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
+    int chosenAtom = 0;
+    for (ii = chosenAtom; ii < inum; ii++) {
       i = ilist[ii];
+      itype = map[type[i]];
+
       double xi = x[i][0];
       double yi = x[i][1];
       double zi = x[i][2];
 
       if (myStep == 0)
-        std::cout << "Chosen atom: " << i << " " << xi << " " << yi << " " 
+        std::cout << "Chosen atom: " << i << " " << itype <<
+        " " << xi << " " << yi << " " 
                   << zi << " " << std::endl;
 
       jlist = firstneigh[i];
@@ -275,19 +273,30 @@ void PairMyVashishta::compute(int eflag, int vflag)
         
         ijparam = elem2param[itype][jtype][jtype];
 
+        // pair cut
         if (rsq >= params[ijparam].cutsq) continue;
 
-        // save positions of neighbour j relative to position
-        // of central atom i for use in training
-        outfile << std::setprecision(10) << delx << " " << dely << " " <<
-                   delz << " " << rsq << " ";
+        // write to pair file
+        //outfile1 << std::setprecision(10) << delx << " " << dely << " " <<
+        //           delz << " " << rsq << " "; 
+
+        ikparam = elem2param[itype][ktype][ktype];
+
+        // triplet cut
+        if (rsq >= params[ikparam].cutsq2) continue;
+
+        //outfile2 << std::setprecision(10) << delx << " " << dely << " " <<
+        //         delz << " " << rsq << " ";
       }
       // store energy
-      outfile << std::setprecision(10) << eatom[i] << std::endl;  
+      //outfile1 << std::setprecision(10) << eatom[i] << std::endl;
+      //outfile2 << std::setprecision(10) << eatom[i] << std::endl;  
     }
-    outfile.close();
+    //outfile1.close();
+    //outfile2.close();
   }
   myStep++;
+  exit(1);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -309,11 +318,11 @@ void PairMyVashishta::makeDirectory()
   std::string command = "mkdir " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not make directory" << std::endl;
-  filename1 = dirName + "/pairs.txt";
-  filename2 = dirName + "/triplets.txt";
+  filename1Pairs = dirName + "/1Pairs.txt";
+  filename2Pairs = dirName + "/2Pairs.txt";
+  filename1Triplets = dirName + "/1Triplets.txt";
+  filename2Triplets = dirName + "/2Triplets.txt";
   std::cout << "DIRNAME : " << dirName << std::endl;
-  std::cout << "FILENAME1: " << filename1 << std::endl;
-  std::cout << "FILENAME2: " << filename2 << std::endl;
 
   // copy input script and potential file to folder for reference
   command = "cp SiO2.vashishta.in " + dirName;
@@ -323,11 +332,26 @@ void PairMyVashishta::makeDirectory()
   if ( system(command.c_str()) ) 
     std::cout << "Could not copy lammps script" << std::endl;
 
-  // trying to open file, check if file successfully opened
-  outfile.open(filename.c_str());
-  if ( !outfile.is_open() ) 
+  // trying to open files, check if file successfully opened
+  outfile1Pairs.open(filename1Pairs.c_str());
+  if ( !outfile1Pairs.is_open() ) 
     std::cout << "File is not opened" << std::endl;
-  outfile.close();
+  outfile1Pairs.close();
+
+  outfile2Pairs.open(filename2Pairs.c_str());
+  if ( !outfile2Pairs.is_open() ) 
+    std::cout << "File is not opened" << std::endl;
+  outfile2Pairs.close();
+
+  outfile1Triplets.open(filename1Triplets.c_str());
+  if ( !outfile1Triplets.is_open() ) 
+    std::cout << "File is not opened" << std::endl;
+  outfile1Triplets.close();
+
+  outfile2Triplets.open(filename2Triplets.c_str());
+  if ( !outfile2Triplets.is_open() ) 
+    std::cout << "File is not opened" << std::endl;
+  outfile2Triplets.close();
 }
 
 /* ---------------------------------------------------------------------- */
