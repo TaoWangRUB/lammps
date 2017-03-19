@@ -121,7 +121,7 @@ void PairMyVashishta::compute(int eflag, int vflag)
     i = ilist[ii];
     itag = tag[i];
     itype = map[type[i]];
-    std::cout << itype << std::endl;
+
     xtmp = x[i][0];
     ytmp = x[i][1];
     ztmp = x[i][2];
@@ -236,26 +236,35 @@ void PairMyVashishta::compute(int eflag, int vflag)
   // write neighbour lists every 100 steps
   if ( !(myStep % 10) ) {
 
-    //outfile1.open(filename1.c_str(), std::ios::app);
-    //outfile2.open(filename2.c_str(), std::ios::app);
+    std::ofstream outfiles[2];
 
     // sampling just a few configs for each time step
     // because the system is quite homogeneous
 
     // decide number of samples for each time step
-    int chosenAtom = 0;
-    for (ii = chosenAtom; ii < inum; ii++) {
+    int chosenAtoms[] = {307, 309};
+    for (int ii : chosenAtoms) {
       i = ilist[ii];
       itype = map[type[i]];
+
+      if (itype == 0) {
+        outfiles[0].open(filename1Pairs.c_str(), std::ios::app);
+        outfiles[1].open(filename1Triplets.c_str(), std::ios::app);
+      }
+      else {
+        outfiles[0].open(filename2Pairs.c_str(), std::ios::app);
+        outfiles[1].open(filename2Triplets.c_str(), std::ios::app);
+      }
 
       double xi = x[i][0];
       double yi = x[i][1];
       double zi = x[i][2];
 
-      if (myStep == 0)
-        std::cout << "Chosen atom: " << i << " " << itype <<
-        " " << xi << " " << yi << " " 
-                  << zi << " " << std::endl;
+      if (myStep == 0) {
+        std::cout << "Chosen atom: "
+        << i << " " << itype << " " << xi << " " << yi << " " 
+        << zi << " " << std::endl;
+      }
 
       jlist = firstneigh[i];
       jnum = numneigh[i];
@@ -277,23 +286,22 @@ void PairMyVashishta::compute(int eflag, int vflag)
         if (rsq >= params[ijparam].cutsq) continue;
 
         // write to pair file
-        //outfile1 << std::setprecision(10) << delx << " " << dely << " " <<
-        //           delz << " " << rsq << " "; 
-
-        ikparam = elem2param[itype][ktype][ktype];
+        outfiles[0] << std::setprecision(10) << delx << " " << dely << " " <<
+        delz << " " << rsq << " ";
 
         // triplet cut
-        if (rsq >= params[ikparam].cutsq2) continue;
+        if (rsq >= params[ijparam].cutsq2) continue;
 
-        //outfile2 << std::setprecision(10) << delx << " " << dely << " " <<
-        //         delz << " " << rsq << " ";
+        outfiles[1] << std::setprecision(10) << delx << " " << dely << " " <<
+        delz << " " << rsq << " ";
       }
+
       // store energy
-      //outfile1 << std::setprecision(10) << eatom[i] << std::endl;
-      //outfile2 << std::setprecision(10) << eatom[i] << std::endl;  
+      outfiles[0] << std::setprecision(10) << eatom[i] << std::endl;
+      outfiles[1] << std::setprecision(10) << eatom[i] << std::endl;  
     }
-    //outfile1.close();
-    //outfile2.close();
+    outfiles[0].close();
+    outfiles[1].close();
   }
   myStep++;
   exit(1);
