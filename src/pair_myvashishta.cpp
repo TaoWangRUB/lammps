@@ -281,6 +281,11 @@ void PairMyVashishta::compute(int eflag, int vflag)
         rsq = delx*delx + dely*dely + delz*delz;
         
         ijparam = elem2param[itype][jtype][jtype];
+        std::cout << "itype: " << itype << "jtype: " << jtype << std::endl;
+        std::cout << "pair: " << params[ijparam].cutsq << std::endl;
+        std::cout << "trip: " << params[ijparam].cutsq2 << std::endl;
+        std::cout << std::endl;  
+  
 
         // pair cut
         if (rsq >= params[ijparam].cutsq) continue;
