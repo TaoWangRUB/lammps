@@ -102,10 +102,10 @@ void PairMySW::compute(int eflag, int vflag)
   int nlocal = atom->nlocal;
   int newton_pair = force->newton_pair;
 
-  inum = list->inum;
-  ilist = list->ilist;
-  numneigh = list->numneigh;
-  firstneigh = list->firstneigh;
+  inum = list->inum; // length of list of neighbour lists
+  ilist = list->ilist; // list of i atoms for which neighbour lists exicst
+  numneigh = list->numneigh; // length of each of the neighbour lists
+  firstneigh = list->firstneigh; // neighbour lists for each atom i
 
   if (myStep == 0) pairForces.open("../TestNN/Tests/Forces/pairForcesSW.txt");
   else pairForces.open("../TestNN/Tests/Forces/pairForcesSW.txt", std::ios::app);
@@ -131,11 +131,15 @@ void PairMySW::compute(int eflag, int vflag)
 
     // two-body interactions, skip half of them
 
-    jlist = firstneigh[i];
-    jnum = numneigh[i];
+    jlist = firstneigh[i]; // neighbour list of atom i
+    jnum = numneigh[i];    // number of neighbours for atom i
 
     for (jj = 0; jj < jnum; jj++) {
     
+      // j is local (for this processor) indicies of neighbours
+      // of atom i. When j > ilocal, this is a ghost atom
+      // for serial, ghost atoms are atoms because of 
+      // periodic boundary conditions
       j = jlist[jj];
       j &= NEIGHMASK;
       jtag = tag[j];
@@ -165,6 +169,7 @@ void PairMySW::compute(int eflag, int vflag)
       fx2 += delx*fpair;
       fy2 += dely*fpair;
       fz2 += delz*fpair;
+      std::cout << j << std::endl;
       f[j][0] -= delx*fpair;
       f[j][1] -= dely*fpair;
       f[j][2] -= delz*fpair;
