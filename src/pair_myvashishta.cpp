@@ -234,7 +234,8 @@ void PairMyVashishta::compute(int eflag, int vflag)
 
 
   // write neighbour lists every 100 steps
-  if ( !(myStep % 10) ) {
+  //if ( !(myStep % 10) ) {
+  if ( myStep == 10000) {
 
     std::ofstream outfiles[2];
 
@@ -260,6 +261,8 @@ void PairMyVashishta::compute(int eflag, int vflag)
       double yi = x[i][1];
       double zi = x[i][2];
 
+      // write out coordinates of chosen atoms to check that they
+      // are not on the edge of the system
       if (myStep == 0) {
         std::cout << "Chosen atom: "
         << i << " " << itype << " " << xi << " " << yi << " " 
@@ -286,7 +289,6 @@ void PairMyVashishta::compute(int eflag, int vflag)
         std::cout << "trip: " << params[ijparam].cutsq2 << std::endl;
         std::cout << std::endl;  
   
-
         // pair cut
         if (rsq >= params[ijparam].cutsq) continue;
 

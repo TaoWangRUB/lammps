@@ -284,7 +284,7 @@ void PairMySW::compute(int eflag, int vflag)
     // save distance from central atom i to neighbour j
     outfile << delx << " " << dely << " " << delz << " " << rsq << " ";
   }
-  // store energy
+
   outfile << std::endl;
   outfile.close();*/
 
@@ -327,8 +327,7 @@ void PairMySW::compute(int eflag, int vflag)
   	    dely = yi - x[j][1];
   	    delz = zi - x[j][2];
 
-  	    rsq = delx*delx + dely*dely + delz*delz;
-        
+  	    rsq = delx*delx + dely*dely + delz*delz;      
 
   	    ijparam = elem2param[itype][jtype][jtype];
 
@@ -339,8 +338,9 @@ void PairMySW::compute(int eflag, int vflag)
   	    outfile << std::setprecision(10) << delx << " " << dely << " " <<
                    delz << " " << rsq << " ";
   	  }
-      // store energy
-  		outfile << std::setprecision(10) << eatom[i] << std::endl;	
+      // store energy and force
+  		outfile << std::setprecision(10) << eatom[i] << " " << f[i][0] << " " <<
+      f[i][1] << " " << f[i][2] << std::endl;
   	}
     outfile.close();
   }

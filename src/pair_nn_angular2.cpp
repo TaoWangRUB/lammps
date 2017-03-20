@@ -350,6 +350,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
         int k = jlist[kk];
         k &= NEIGHMASK;
+        tagint ktag = tag[k];
 
         double delxk = xtmp - x[k][0];
         double delyk = ytmp - x[k][1];
@@ -415,20 +416,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
     Rij = Rij.head_cols(neighbours);
     drij = drij.head_cols(neighbours);
 
-    /*if (myStep == 19) {
-      std::ofstream outfile;
-      outfile.open("Tests/TestEnergy/inputVector2.txt");
-      for (int p=0; p < arma::size(Rij)(1); p++){
-        outfile << std::setprecision(14) << drij(0,p) << " " << 
-        drij(1,p) << " " << drij(2,p) << " " <<
-        Rij(0,p) << " ";
-        cout << drij(0,p) << " " << drij(1,p) << " " << drij(2,p) << " " <<
-        Rij(0,p) << " ";}
-      outfile << endl;
-      cout << endl;
-      outfile.close();
-    }*/
-
     /*std::cout << "neighbours " << neighbours << std::endl;
     std::cout << "Rij: " << arma::size(Rij) << std::endl;
     std::cout << Rij << std::endl;
@@ -447,7 +434,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
     // apply NN to get energy
     evdwl = network(inputVector);
-    eatom[i] += evdwl;
+    eatom[i] += 0.5*evdwl;
 
     // set energy manually (not use ev_tally for energy)
     eng_vdwl += 0.5*evdwl;
@@ -484,9 +471,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
         // chain rule. all pair foces
         arma::mat fpairs = -dEdG(0,s) * dG2 / Rij;
 
-        //if (myStep == 0)
-        //    cout << fpairs << endl;
-
         // loop through all pairs for N3L
         for (int l=0; l < neighbours; l++) {
           double fpair = fpairs(0,l);
@@ -494,14 +478,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
           fy2 += fpair*drij(1,l);
           fz2 += fpair*drij(2,l);
 
-        if (myStep == 0) {
-          //cout << fx2 << " " << fy2 << " " << fz2 << endl;
-        }
-
           // NOT N3L NOW
-          //f[tagsj[l]][0] -= fpair*drij(0,l);
-          //f[tagsj[l]][1] -= fpair*drij(1,l);
-          //f[tagsj[l]][2] -= fpair*drij(2,l);
+          f[tagsj[l]][0] -= fpair*drij(0,l);
+          f[tagsj[l]][1] -= fpair*drij(1,l);
+          f[tagsj[l]][2] -= fpair*drij(2,l);
 
           if (evflag) ev_tally_full(i, 0, 0, fpair,
                                     drij(0,l), drij(1,l), drij(2,l));
@@ -514,7 +494,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
       // G4/G5: neighbours-1 triplet environments per symmetry function
       else {
 
-        for (int l=0; l < neighbours; l++) {
+        for (int l=0; l < neighbours-1; l++) {
 
           int numberOfTriplets = arma::size(Riks[l])(1);
 
@@ -657,8 +637,8 @@ void PairNNAngular2::init_style()
 {
   if (atom->tag_enable == 0)
     error->all(FLERR,"Pair style NN requires atom IDs");
-  if (force->newton_pair == 0)
-    error->all(FLERR,"Pair style NN requires newton pair on");
+  //if (force->newton_pair == 0)
+    //error->all(FLERR,"Pair style NN requires newton pair on");
 
   // need a full neighbor list
   int irequest = neighbor->request(this);
@@ -717,7 +697,6 @@ void PairNNAngular2::read_file(char *file)
   // that will be reshaped later
   std::vector<arma::mat> weightsTemp;
   for ( std::string line; std::getline(inputGraph, line); ) {
-    std::cout << line << std::endl;
 
     if ( line.empty() )
         break;
