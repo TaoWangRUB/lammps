@@ -450,7 +450,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
     eatom[i] += evdwl;
 
     // set energy manually (not use ev_tally for energy)
-    eng_vdwl += evdwl;
+    eng_vdwl += 0.5*evdwl;
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation();
@@ -490,9 +490,9 @@ void PairNNAngular2::compute(int eflag, int vflag)
         // loop through all pairs for N3L
         for (int l=0; l < neighbours; l++) {
           double fpair = fpairs(0,l);
-          fx2 += 2*fpair*drij(0,l);
-          fy2 += 2*fpair*drij(1,l);
-          fz2 += 2*fpair*drij(2,l);
+          fx2 += fpair*drij(0,l);
+          fy2 += fpair*drij(1,l);
+          fz2 += fpair*drij(2,l);
 
         if (myStep == 0) {
           //cout << fx2 << " " << fy2 << " " << fz2 << endl;
@@ -556,7 +556,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
             fx3k += fk3[0];
             fy3k += fk3[1];
             fz3k += fk3[2];
-
 
             // add to atom j. Not N3L, but becuase
             // every pair (i,j) is counted twice for triplets
@@ -737,8 +736,6 @@ void PairNNAngular2::read_file(char *file)
     weightsTemp.push_back(matrix);
   }
 
-  exit(1);
-
   // can put all biases in vector directly
   // no need for temporary vector
   for ( std::string line; std::getline(inputGraph, line); ) {
@@ -811,7 +808,6 @@ void PairNNAngular2::read_file(char *file)
 
   for (const auto i : m_biases)
     std::cout << i << std::endl;*/
-
 
   // read parameters file
   std::string parametersName = trainingDir + "/parameters.dat";
