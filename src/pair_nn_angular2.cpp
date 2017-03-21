@@ -714,7 +714,7 @@ void PairNNAngular2::read_file(char *file)
   // process file
   // store all weights in a temporary vector
   // that will be reshaped later
-  std::vector<arma::mat> weightsTemp;
+  std::vector<arma::mat> weightsTemp = std::vector<arma::mat>();
   for ( std::string line; std::getline(inputGraph, line); ) {
 
     if ( line.empty() )
@@ -731,7 +731,9 @@ void PairNNAngular2::read_file(char *file)
         matrix(0,i) = buffer;
         i++;
     }
+    std::cout << matrix << std::endl;
     weightsTemp.push_back(matrix);
+    exit(1);
   }
 
   // can put all biases in vector directly
