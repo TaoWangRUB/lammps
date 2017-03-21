@@ -37,7 +37,7 @@ class PairNNAngular2 : public Pair {
   double init_one(int, int);
   void init_style();
 
-    double network(arma::mat inputVector);
+  double network(arma::mat inputVector);
   arma::mat backPropagation();
   
   arma::mat sigmoid(arma::mat matrix);
@@ -46,8 +46,8 @@ class PairNNAngular2 : public Pair {
   arma::mat Fc(arma::mat R, double Rc, bool cut);
   double Fc(double R, double Rc, bool cut);
   
-  arma::mat dFcdR(arma::mat R, double Rc);
-  double dFcdR(double R, double Rc);
+  arma::mat dFcdR(arma::mat R, double Rc, bool cut);
+  double dFcdR(double R, double Rc, bool cut);
   
   double G1(arma::mat Rij, double Rc);
   double G2(double rij, double eta, double Rc, double Rs);
@@ -60,7 +60,7 @@ class PairNNAngular2 : public Pair {
              arma::mat cosTheta, double eta, double Rc, 
              double zeta, double lambda,
              arma::mat &dEdRj3, arma::mat &dEdRk3,
-             arma::mat drij, arma::mat drik);
+             arma::mat drij, arma::mat drik, arma::mat drjk);
  
  protected:
   double cutoff;

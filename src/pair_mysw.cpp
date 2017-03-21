@@ -161,7 +161,7 @@ void PairMySW::compute(int eflag, int vflag)
       fx2 += delx*fpair;
       fy2 += dely*fpair;
       fz2 += delz*fpair;
-      std::cout << j << std::endl;
+
       f[j][0] -= delx*fpair;
       f[j][1] -= dely*fpair;
       f[j][2] -= delz*fpair;
@@ -275,14 +275,8 @@ void PairMySW::compute(int eflag, int vflag)
   //if ( !(myStep % 10) ) {
   if (write) {
     //std::cout << "Writing to file..." << std::endl;
+    
     outfile.open(filename.c_str(), std::ios::app);
-
-    // Writing out a new file for each time step?
-    // No point...
-    //char buffer[20];
-    //sprintf(buffer, "/neighbours%d.txt", myStep); 
-    //std::string str(buffer);
-    //filename = dirName + str;
 
     // sampling just a few configs for each time step
     // because the system is quite homogeneous
@@ -296,8 +290,8 @@ void PairMySW::compute(int eflag, int vflag)
   	  double zi = x[i][2];
 
       if (myStep == 0)
-        std::cout << "Chosen atom: " << i << " " << xi << " " << yi << " " 
-                  << zi << " " << std::endl;
+        //std::cout << "Chosen atom: " << i << " " << xi << " " << yi << " " 
+        //          << zi << " " << std::endl;
 
   	  jlist = firstneigh[i];
   	  jnum = numneigh[i];
@@ -307,7 +301,7 @@ void PairMySW::compute(int eflag, int vflag)
   	    jtag = tag[j];
   	    jtype = map[type[j]];
 
-        /*if (itag > jtag) {
+        if (itag > jtag) {
           if ((itag+jtag) % 2 == 0) continue;
         } else if (itag < jtag) {
           if ((itag+jtag) % 2 == 1) continue;
@@ -315,7 +309,7 @@ void PairMySW::compute(int eflag, int vflag)
           if (x[j][2] < ztmp) continue;
           if (x[j][2] == ztmp && x[j][1] < ytmp) continue;
           if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp) continue;
-        }*/
+        }
 
   	    delx = xi - x[j][0];
   	    dely = yi - x[j][1];
