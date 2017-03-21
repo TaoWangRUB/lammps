@@ -257,10 +257,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
   double **x = atom->x;
   double **f = atom->f;
   tagint *tag = atom->tag;
-  int nlocal = atom->nlocal;
-  int newton_pair = force->newton_pair;
+  int nlocal = atom->nlocal;    // atoms belonging to current processor
+  int newton_pair = force->newton_pair; // decides how energy and virial are tallied
 
   int inum = list->inum;
+  cout << inum << endl;
+  exit(1);
   int *ilist = list->ilist;
   int *numneigh = list->numneigh;
   int **firstneigh = list->firstneigh;
