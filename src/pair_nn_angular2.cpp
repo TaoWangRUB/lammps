@@ -267,14 +267,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
   double fxtmp,fytmp,fztmp;
 
-  if (myStep == 0) pairForces.open("Tests/Forces/pairForces.txt");
-  else pairForces.open("Tests/Forces/pairForces.txt", std::ios::app);
-  pairForces << "Time step: " << myStep << endl;
-
-  if (myStep == 0) tripletForces.open("Tests/Forces/tripletForces.txt");
-  tripletForces.open("Tests/Forces/tripletForces.txt", std::ios::app);
-  tripletForces << "Time step: " << myStep << endl; 
-
   // loop over full neighbor list of my atoms
   for (int ii = 0; ii < inum; ii++) {
     
@@ -434,10 +426,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
     // apply NN to get energy
     evdwl = network(inputVector);
-    eatom[i] += 0.5*evdwl;
+    eatom[i] += evdwl;
 
     // set energy manually (not use ev_tally for energy)
-    eng_vdwl += 0.5*evdwl;
+    eng_vdwl += evdwl;
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation();
@@ -479,9 +471,9 @@ void PairNNAngular2::compute(int eflag, int vflag)
           fz2 += fpair*drij(2,l);
 
           // NOT N3L NOW
-          f[tagsj[l]][0] -= fpair*drij(0,l);
-          f[tagsj[l]][1] -= fpair*drij(1,l);
-          f[tagsj[l]][2] -= fpair*drij(2,l);
+          //f[tagsj[l]][0] -= fpair*drij(0,l);
+          //f[tagsj[l]][1] -= fpair*drij(1,l);
+          //f[tagsj[l]][2] -= fpair*drij(2,l);
 
           if (evflag) ev_tally_full(i, 0, 0, fpair,
                                     drij(0,l), drij(1,l), drij(2,l));
@@ -561,19 +553,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
     f[i][0] += fx2 + fx3j + fx3k;
     f[i][1] += fy2 + fy3j + fy3k;
     f[i][2] += fz2 + fz3j + fz3k;
-
-    // write total pair force on atom i to file
-    /*pairForces << i << " " << fx2 << " " << fy2 << 
-    " " << fz2 << endl;
-
-    // write total triplet force on atom i to file
-    tripletForces << i << " " << fx3j << " " << 
-    fy3j << " " << fz3j << " "
-    << fx3k << " " << fy3k << " " << fz3k << endl;*/
   }
   if (vflag_fdotr) virial_fdotr_compute();
-  pairForces.close();
-  tripletForces.close();
   myStep++;
 }
 
