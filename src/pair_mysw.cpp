@@ -37,6 +37,8 @@
 
 
 using namespace LAMMPS_NS;
+using std::cout;
+using std::endl;
 
 #define MAXLINE 1024
 #define DELTA 4
@@ -271,9 +273,9 @@ void PairMySW::compute(int eflag, int vflag)
   outfile.close();*/
 
   // write neighbour lists every 100 steps
-  bool write = 1;
-  //if ( !(myStep % 10) ) {
-  if (write) {
+  //bool write = 1;
+  if ( myStep == 10) {
+  //if (write) {
     //std::cout << "Writing to file..." << std::endl;
     
     outfile.open(filename.c_str(), std::ios::app);
@@ -283,15 +285,22 @@ void PairMySW::compute(int eflag, int vflag)
 
     // decide number of samples for each time step
     int chosenAtom = 899;//inum/2;
+    double energy = 0;
+    double fx2 = 0;
+    double fy2 = 0;
+    double fz2 = 0;
+    double fx3 = 0;
+    double fy3 = 0;
+    double fz3 = 0;
     for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
   	  i = ilist[ii];
   	  double xi = x[i][0];
   	  double yi = x[i][1];
   	  double zi = x[i][2];
 
-      if (myStep == 0)
-        //std::cout << "Chosen atom: " << i << " " << xi << " " << yi << " " 
-        //          << zi << " " << std::endl;
+      /*if (myStep == 0)
+        std::cout << "Chosen atom: " << i << " " << xi << " " << yi << " " 
+                  << zi << " " << std::endl;*/
 
   	  jlist = firstneigh[i];
   	  jnum = numneigh[i];
@@ -301,7 +310,7 @@ void PairMySW::compute(int eflag, int vflag)
   	    jtag = tag[j];
   	    jtype = map[type[j]];
 
-        if (itag > jtag) {
+        /*if (itag > jtag) {
           if ((itag+jtag) % 2 == 0) continue;
         } else if (itag < jtag) {
           if ((itag+jtag) % 2 == 1) continue;
@@ -309,29 +318,61 @@ void PairMySW::compute(int eflag, int vflag)
           if (x[j][2] < ztmp) continue;
           if (x[j][2] == ztmp && x[j][1] < ytmp) continue;
           if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp) continue;
-        }
+        }*/
 
-  	    delx = xi - x[j][0];
-  	    dely = yi - x[j][1];
-  	    delz = zi - x[j][2];
+  	    delr1[0] = x[j][0] - xi;
+  	    delr1[1] = x[j][1] - yi;
+  	    delr1[2] = x[j][2] - zi;
 
-  	    rsq = delx*delx + dely*dely + delz*delz;      
+  	    rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];      
 
   	    ijparam = elem2param[itype][jtype][jtype];
 
-  	    if (rsq >= params[ijparam].cutsq) continue;
+  	    if (rsq1 >= params[ijparam].cutsq) continue;
+
+        twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
+        energy += evdwl;
+
+        fx2 -= delx*fpair;
+        fy2 -= dely*fpair;
+        fz2 -= delz*fpair;
 
         // save positions of neighbour j relative to position
         // of central atom i for use in training
-  	    outfile << std::setprecision(10) << delx << " " << dely << " " <<
-                   delz << " " << rsq << " ";
+        outfile << std::setprecision(10) << -delr1[0] << " " << -delr1[1] << " " 
+                << -delr1[2] << " " << rsq1 << " ";
+                   
+        // EDIT //
+        for (kk = jj+1; kk < jnum; kk++) {
+          k = jlist[kk];
+          k &= NEIGHMASK;
+          ktype = map[type[k]];
+          ikparam = elem2param[itype][ktype][ktype];
+          ijkparam = elem2param[itype][jtype][ktype];
+
+          delr2[0] = x[k][0] - xi;
+          delr2[1] = x[k][1] - yi;
+          delr2[2] = x[k][2] - zi;
+          rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
+          if (rsq2 >= params[ikparam].cutsq) continue;
+
+          threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
+                    rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
+          energy += evdwl;
+
+          fx3 -= fj[0] + fk[0];
+          fy3 -= fj[1] + fk[1];
+          fz3 -= fj[2] + fk[2];
+        }
+
   	  }
       // store energy and force
-  		outfile << std::setprecision(10) << eatom[i] << std::endl;  
-      //<< " " << f[i][0] << " " <<
-      //f[i][1] << " " << f[i][2] << std::endl;
+  		outfile << std::setprecision(10) << energy 
+      << " " << fx2 << " " <<
+      fy2 << " " << fz2 <<  " " << fx3 << " " << fy3 << " " << fz3 << std::endl;
   	}
     outfile.close();
+    exit(1);
   }
   myStep++;
 }

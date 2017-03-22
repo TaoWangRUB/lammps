@@ -330,6 +330,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
     // keep track of how many atoms below r2 and N3L
     int neighbours = 0; 
 
+    // make my own input vector
+    double delxs[] = {1.359823608, -1.419114673, -1.355367295, 1.325464909};
+    double delys[] = {1.402623758, -1.280200287, 1.404563335, -1.306627904};
+    double delzs[] = {1.259255454, 1.215290446, -1.423082273, -1.484003016};
+    jnum = 4;
+
     // collect all pairs
     for (int jj = 0; jj < jnum; jj++) {
 
@@ -337,9 +343,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
       j &= NEIGHMASK;
       tagint jtag = tag[j];
 
-      double delxj = xtmp - x[j][0];
-      double delyj = ytmp - x[j][1];
-      double delzj = ztmp - x[j][2];
+      //double delxj = xtmp - x[j][0];
+      //double delyj = ytmp - x[j][1];
+      //double delzj = ztmp - x[j][2];
+      double delxj = delxs[jj];
+      double delyj = delys[jj];
+      double delzj = delzs[jj];
       double rsq1 = delxj*delxj + delyj*delyj + delzj*delzj;
 
       if (rsq1 >= cutoff*cutoff) continue;
@@ -373,9 +382,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
         k &= NEIGHMASK;
         tagint ktag = tag[k];
 
-        double delxk = xtmp - x[k][0];
-        double delyk = ytmp - x[k][1];
-        double delzk = ztmp - x[k][2];
+        //double delxk = xtmp - x[k][0];
+        //double delyk = ytmp - x[k][1];
+        //double delzk = ztmp - x[k][2];
+        double delxk = delxs[kk];
+        double delyk = delys[kk];
+        double delzk = delzs[kk];
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
         if (rsq2 >= cutoff*cutoff) continue;
@@ -385,10 +397,15 @@ void PairNNAngular2::compute(int eflag, int vflag)
         double cosTheta = ( delxj*delxk + delyj*delyk + 
                             delzj*delzk ) / (rij*rik);
 
-        double delxjk = x[j][0] - x[k][0];
-        double delyjk = x[j][1] - x[k][1];
-        double delzjk = x[j][2] - x[k][2];
+        //double delxjk = x[j][0] - x[k][0];
+        //double delyjk = x[j][1] - x[k][1];
+        //double delzjk = x[j][2] - x[k][2];
+        double delxjk = delxj - delxk;
+        double delyjk = delyj - delyk;
+        double delzjk = delzj - delzk;
         double rjk = sqrt(delxjk*delxjk + delyjk*delyjk + delzjk*delzjk);
+        cout << "xjk: " << x[j][0] - x[k][0] << endl;
+        cout << "my xjk: " << delxjk << endl;
 
         // collect triplets
         drik(0, neighk) = delxk;
@@ -461,16 +478,25 @@ void PairNNAngular2::compute(int eflag, int vflag)
     cout << "Rjks1: " << Rjks[1] << endl;
 
     std::cout << "inputVector: " << inputVector << endl;*/
+    std::ofstream outout;
+    outout.open("../../TensorFlow/testForcesInput.txt");
+    outout << endl;
+    for (int h=0; h < arma::size(inputVector)(1); h++) {
+      outout << inputVector(0,h) << endl;;
+    }
 
     // apply NN to get energy
     evdwl = network(inputVector);
-    eatom[i] += 0.5*evdwl;
+    cout << "Energy: " << evdwl << endl;
+    eatom[i] += evdwl;
 
     // set energy manually (not use ev_tally for energy)
-    eng_vdwl += 0.5*evdwl;
+    eng_vdwl += evdwl;
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation();
+    cout << dEdG << endl;
+    exit(1);
 
     double fx2 = 0;
     double fy2 = 0;
@@ -497,6 +523,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
         // and returning from function --> speed-up
         dG2dR(Rij, m_parameters[s][0],
               m_parameters[s][1], m_parameters[s][2], dG2);
+        cout << dG2 << endl;
+        exit(1);
 
         // chain rule. all pair foces
         arma::mat fpairs = -dEdG(0,s) * dG2 / Rij;
@@ -591,6 +619,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
     f[i][0] += fx2 + fx3j + fx3k;
     f[i][1] += fy2 + fy3j + fy3k;
     f[i][2] += fz2 + fz3j + fz3k;
+    cout << "2Forces: " << fx2 << " " << fy2 << " " << fz2 << endl;
+    cout << "3Forces: " << fx3j + fx3k << " " << fy3j + fy3k << " "
+    << fz3j + fz3k << endl;
+    exit(1);
   }
   if (vflag_fdotr) virial_fdotr_compute();
   myStep++;
@@ -731,9 +763,7 @@ void PairNNAngular2::read_file(char *file)
         matrix(0,i) = buffer;
         i++;
     }
-    std::cout << matrix << std::endl;
     weightsTemp.push_back(matrix);
-    exit(1);
   }
 
   // can put all biases in vector directly
