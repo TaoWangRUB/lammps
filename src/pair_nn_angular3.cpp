@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pair_nn_angular2.h"
+#include "pair_nn_angular3.h"
 #include "atom.h"
 #include "neighbor.h"
 #include "neigh_request.h"
@@ -45,9 +45,9 @@ using std::endl;
 
 /* ---------------------------------------------------------------------- */
 
-PairNNAngular2::PairNNAngular2(LAMMPS *lmp) : Pair(lmp)
+PairNNAngular3::PairNNAngular3(LAMMPS *lmp) : Pair(lmp)
 {
-  single_enable = 0; // We don't provide the force between two atoms only since it is Angular2
+  single_enable = 0; // We don't provide the force between two atoms only since it is Angular3
   restartinfo = 0;   // We don't write anything to restart file
   one_coeff = 1;     // only one coeff * * call
   manybody_flag = 1; // Not only a pair style since energies are computed from more than one neighbor
@@ -58,7 +58,7 @@ PairNNAngular2::PairNNAngular2(LAMMPS *lmp) : Pair(lmp)
    check if allocated, since class can be destructed when incomplete
 ------------------------------------------------------------------------- */
 
-PairNNAngular2::~PairNNAngular2()
+PairNNAngular3::~PairNNAngular3()
 {
   if (copymode) return;
   // If you allocate stuff you should delete and deallocate here. 
@@ -73,7 +73,7 @@ PairNNAngular2::~PairNNAngular2()
 
 /* ---------------------------------------------------------------------- */
 
-double PairNNAngular2::network(arma::mat inputVector) {
+double PairNNAngular3::network(arma::mat inputVector) {
     // inputGraph vector is a 1xinputGraphs vector
 
     // linear activation for inputGraph layer
@@ -96,7 +96,7 @@ double PairNNAngular2::network(arma::mat inputVector) {
     return m_activations[m_nLayers+1](0,0);
 }
 
-arma::mat PairNNAngular2::backPropagation() {
+arma::mat PairNNAngular3::backPropagation() {
   // find derivate of output w.r.t. intput, i.e. dE/dr_ij
   // need to find the "error" terms for all the nodes in all the layers
 
@@ -118,18 +118,18 @@ arma::mat PairNNAngular2::backPropagation() {
   return m_derivatives[0];
 }
 
-arma::mat PairNNAngular2::sigmoid(arma::mat matrix) {
+arma::mat PairNNAngular3::sigmoid(arma::mat matrix) {
 
   return 1.0/(1 + arma::exp(-matrix));
 }
 
-arma::mat PairNNAngular2::sigmoidDerivative(arma::mat matrix) {
+arma::mat PairNNAngular3::sigmoidDerivative(arma::mat matrix) {
 
   arma::mat sigmoidMatrix = sigmoid(matrix);
   return sigmoidMatrix % (1 - sigmoidMatrix);
 }
 
-arma::mat PairNNAngular2::Fc(arma::mat R, double Rc, bool cut) {
+arma::mat PairNNAngular3::Fc(arma::mat R, double Rc, bool cut) {
 
   arma::mat value = 0.5*(arma::cos(m_pi*R/Rc) + 1);
 
@@ -141,7 +141,7 @@ arma::mat PairNNAngular2::Fc(arma::mat R, double Rc, bool cut) {
   return value;
 }
 
-double PairNNAngular2::Fc(double R, double Rc, bool cut) {
+double PairNNAngular3::Fc(double R, double Rc, bool cut) {
 
   if (cut)
     if (R < Rc)
@@ -152,7 +152,7 @@ double PairNNAngular2::Fc(double R, double Rc, bool cut) {
     return 0.5*(cos(m_pi*R/Rc) + 1);
 }
 
-arma::mat PairNNAngular2::dFcdR(arma::mat R, double Rc, bool cut) {
+arma::mat PairNNAngular3::dFcdR(arma::mat R, double Rc, bool cut) {
 
   double Rcinv = 1.0/Rc;
   arma::mat value = -(0.5*m_pi*Rcinv) * arma::sin(m_pi*R*Rcinv);
@@ -165,7 +165,7 @@ arma::mat PairNNAngular2::dFcdR(arma::mat R, double Rc, bool cut) {
   return value; 
 }
 
-double PairNNAngular2::dFcdR(double R, double Rc, bool cut) {
+double PairNNAngular3::dFcdR(double R, double Rc, bool cut) {
 
   double Rcinv = 1.0/Rc;
 
@@ -178,29 +178,28 @@ double PairNNAngular2::dFcdR(double R, double Rc, bool cut) {
     return -(0.5*m_pi*Rcinv) * sin(m_pi*R*Rcinv);
 }
 
-double PairNNAngular2::G1(arma::mat Rij, double Rc) {
+double PairNNAngular3::G1(arma::mat Rij, double Rc) {
 
   return arma::accu( Fc(Rij, Rc, false) );
 }
 
-arma::mat PairNNAngular2::dG1dR(arma::mat Rij, double Rc) {
+arma::mat PairNNAngular3::dG1dR(arma::mat Rij, double Rc) {
 
   return dFcdR(Rij, Rc, false);
 }
 
-double PairNNAngular2::G2(double rij, double eta, double Rc, double Rs) {
+double PairNNAngular3::G2(double rij, double eta, double Rc, double Rs) {
 
   return exp(-eta*(rij - Rs)*(rij - Rs)) * Fc(rij, Rc, false);
 }
 
-void PairNNAngular2::dG2dR(arma::mat Rij, double eta, double Rc, double Rs,
-                          arma::mat &dG2) {
+double PairNNAngular3::dG2dR(double Rij, double eta, double Rc, double Rs) {
 
-  dG2 = arma::exp(-eta*(Rij - Rs)%(Rij - Rs)) % 
-          ( 2*eta*(Rs - Rij) % Fc(Rij, Rc, false) + dFcdR(Rij, Rc, false) );
+  return -exp(-eta*(Rij - Rs)*(Rij - Rs)) *
+          ( 2*eta*(Rs - Rij) * Fc(Rij, Rc, false) + dFcdR(Rij, Rc, false) ) / Rij;
 }
 
-double PairNNAngular2::G4(double rij, double rik, double rjk, double cosTheta, 
+double PairNNAngular3::G4(double rij, double rik, double rjk, double cosTheta, 
                           double eta, double Rc, double zeta, double lambda) {
 
   return pow(2, 1-zeta) * 
@@ -210,69 +209,69 @@ double PairNNAngular2::G4(double rij, double rik, double rjk, double cosTheta,
 }
 
 
-void PairNNAngular2::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, 
-                          arma::mat cosTheta, double eta, double Rc, 
-                          double zeta, double lambda,
-                          arma::mat &dEdRj3, arma::mat &dEdRk3,
-                          arma::mat drij, arma::mat drik, arma::mat drjk) {
+void PairNNAngular3::dG4dR(double Rij, double Rik, double Rjk, 
+                           double cosTheta, double eta, double Rc, 
+                           double zeta, double lambda,
+                           arma::mat &dEdRj3, arma::mat &dEdRk3,
+                           double xi, double yi, double zi) {
 
-  arma::mat powCosThetaM1 = pow(2, 1-zeta)*arma::pow(1 + lambda*cosTheta, zeta-1);
-  arma::mat F1 = powCosThetaM1 % (1 + lambda*cosTheta);
+  double powCosThetaM1 = pow(2, 1-zeta)*pow(1 + lambda*cosTheta, zeta-1);
+  double F1 = powCosThetaM1 * (1 + lambda*cosTheta);
 
-  arma::mat F2 = arma::exp(-eta*(Rij*Rij + Rik%Rik + Rjk%Rjk));
+  double F2 = exp(-eta*(Rij*Rij + Rik*Rik + Rjk*Rjk));
 
   double FcRij = Fc(Rij, Rc, false);
-  arma::mat FcRik = Fc(Rik, Rc, false);
-  arma::mat FcRjk = Fc(Rjk, Rc, true);
-  arma::mat F3 = FcRij * FcRik % FcRjk;
+  double FcRik = Fc(Rik, Rc, false);
+  double FcRjk = Fc(Rjk, Rc, true);
+  double F3 = FcRij * FcRik * FcRjk;
 
-  arma::mat K = lambda*zeta*powCosThetaM1;
-  arma::mat L = -2*eta*F2;
+  double K = lambda*zeta*powCosThetaM1;
+  double L = -2*eta*F2;
   double Mij = dFcdR(Rij, Rc, false);
-  arma::mat Mik = dFcdR(Rik, Rc, false);
-  arma::mat Mjk = dFcdR(Rjk, Rc, true);
+  double Mik = dFcdR(Rik, Rc, false);
+  double Mjk = dFcdR(Rjk, Rc, true);
 
-  arma::mat term1 = K % F2 % F3;
-  arma::mat term2 = F1 % L % F3;
+  double term1 = K * F2 * F3;
+  double term2 = F1 * L * F3;
 
-  arma::mat F1F2 = F1 % F2;
-  arma::mat term3ij = F1F2 % FcRik % FcRjk * Mij;
-  arma::mat term3ik = F1F2 % FcRjk % Mik * FcRij;
+  double F1F2 = F1 * F2;
+  double term3ij = F1F2 * FcRik * FcRjk * Mij;
+  double term3ik = F1F2 * FcRjk * Mik * FcRij;
 
-  arma::mat termjk = F1F2 % Mjk % FcRik * FcRij;
+  double termjk = F1F2 * Mjk * FcRik * FcRij;
 
   double RijInv = 1.0 / Rij;
-  arma::mat cosRijInv2 = cosTheta * RijInv*RijInv;
+  double cosRijInv2 = cosTheta * RijInv*RijInv;
 
-  arma::mat RikInv = 1.0 / Rik;
-  arma::mat cosRikInv2 = cosTheta % RikInv%RikInv;
+  double RikInv = 1.0 / Rik;
+  double cosRikInv2 = cosTheta * RikInv*RikInv;
 
-  arma::mat RijRikInv = RijInv * RikInv;
+  double RijRikInv = RijInv * RikInv;
 
-  arma::mat termij = (cosRijInv2 % term1) - term2 - RijInv*term3ij;
-  arma::mat termik = (cosRikInv2 % term1) - term2 - RikInv%term3ik;
-  arma::mat crossTerm = -term1 % RijRikInv; 
-  arma::mat crossTermjk = termjk / Rjk;
+  double termij = (cosRijInv2 * term1) - term2 - RijInv*term3ij;
+  double termik = (cosRikInv2 * term1) - term2 - RikInv*term3ik;
+  double crossTerm = -term1 * RijRikInv; 
+  double crossTermjk = termjk / Rjk;
 
 
   // all k's give a triplet energy contributon to atom j
-  dEdRj3.row(0) =  (drij(0,0) * termij) + (drik.row(0) % crossTerm) -  
-                   (drjk.row(0) % crossTermjk);
-  dEdRj3.row(1) =  (drij(1,0) * termij) + (drik.row(1) % crossTerm) -  
-                   (drjk.row(1) % crossTermjk);
-  dEdRj3.row(2) =  (drij(2,0) * termij) + (drik.row(2) % crossTerm) -  
-                   (drjk.row(2) % crossTermjk);
+  dEdRj3.row(0) =  (drij(0,0) * termij) + (drik.row(0) * crossTerm) -  
+                   (drjk.row(0) * crossTermjk);
+  dEdRj3.row(1) =  (drij(1,0) * termij) + (drik.row(1) * crossTerm) -  
+                   (drjk.row(1) * crossTermjk);
+  dEdRj3.row(2) =  (drij(2,0) * termij) + (drik.row(2) * crossTerm) -  
+                   (drjk.row(2) * crossTermjk);
 
   // need all the different components of k's forces to do sum k > j
-  dEdRk3.row(0) =  (drik.row(0) % termik) + (drij(0,0) * crossTerm) +  
-                   (drjk.row(0) % crossTermjk);
-  dEdRk3.row(1) =  (drik.row(1) % termik) + (drij(1,0) * crossTerm) +  
-                   (drjk.row(1) % crossTermjk);
-  dEdRk3.row(2) =  (drik.row(2) % termik) + (drij(2,0) * crossTerm) +  
-                   (drjk.row(2) % crossTermjk);
+  dEdRk3.row(0) =  (drik.row(0) * termik) + (drij(0,0) * crossTerm) +  
+                   (drjk.row(0) * crossTermjk);
+  dEdRk3.row(1) =  (drik.row(1) * termik) + (drij(1,0) * crossTerm) +  
+                   (drjk.row(1) * crossTermjk);
+  dEdRk3.row(2) =  (drik.row(2) * termik) + (drij(2,0) * crossTerm) +  
+                   (drjk.row(2) * crossTermjk);
 }
 
-void PairNNAngular2::compute(int eflag, int vflag)
+void PairNNAngular3::compute(int eflag, int vflag)
 {
   feenableexcept(FE_INVALID | FE_OVERFLOW);
 
@@ -292,7 +291,22 @@ void PairNNAngular2::compute(int eflag, int vflag)
   int *numneigh = list->numneigh;
   int **firstneigh = list->firstneigh;
 
-  double fxtmp,fytmp,fztmp;
+  // store all NN derivatives for force calculations later
+  std::vector<arma::mat> NNderivatives(inum);
+
+  // store all atoms below cutoff for each i
+  std::vector<std::vector<int>> neighShort(inum);
+
+  // store all Rij
+  std::vector<std::vector<double>> Rij(inum);
+
+  // store Rik, Rjk, cosTheta as arma matrices
+  std::vector<std::vector<arma::mat>> Riks(inum);
+  std::vector<std::vector<arma::mat>> cosThetas(inum);
+  std::vector<std::vector<arma::mat>> Rjks(inum);
+
+  // store k tags
+  std::vector<std::vector<std::vector<int>>> tagsk(inum);
 
   // loop over full neighbor list of my atoms
   for (int ii = 0; ii < inum; ii++) {
@@ -300,41 +314,21 @@ void PairNNAngular2::compute(int eflag, int vflag)
     int i = ilist[ii];
     tagint itag = tag[i];
 
-    double xtmp = x[i][0];
-    double ytmp = x[i][1];
-    double ztmp = x[i][2];
+    double xi = x[i][0];
+    double yi = x[i][1];
+    double zi = x[i][2];
 
     // two-body interactions, skip half of them
     int *jlist = firstneigh[i];
     int jnum = numneigh[i];
-    int numshort = 0;
 
-    // collect all neighbours in arma matrix, jnum max
-    arma::mat Rij(1, jnum);        // all pairs (i,j)
-    arma::mat drij(3, jnum);       // (dxij, dyij, dzyij)   
-    std::vector<int> tagsj(jnum);  // indicies of j-atoms
-
-    // store all triplets etc in vectors
-    // jnum pairs, jnum-1 triplets max
-    // for every (i,j) there is a vector of the below quantities
-    std::vector<arma::mat> Riks(jnum-1);
-    std::vector<arma::mat> driks(jnum-1);
-    std::vector<arma::mat> cosThetas(jnum-1);
-    std::vector<arma::mat> Rjks(jnum-1);
-    std::vector<arma::mat> drjks(jnum-1);
-    std::vector<std::vector<int>> tagsk(jnum-1);
+    tagsk[ii].resize(jnum);
 
     // input vector to NN
     arma::mat inputVector(1, m_numberOfSymmFunc, arma::fill::zeros);
 
-    // keep track of how many atoms below r2 and N3L
-    int neighbours = 0; 
-
-    // make my own input vector
-    /*double delxs[] = {1.359823608, -1.419114673, -1.355367295, 1.325464909};
-    double delys[] = {1.402623758, -1.280200287, 1.404563335, -1.306627904};
-    double delzs[] = {1.259255454, 1.215290446, -1.423082273, -1.484003016};
-    jnum = 4;*/
+    // keep track of neighbours
+    int neighbours = 0;
 
     // collect all pairs
     for (int jj = 0; jj < jnum; jj++) {
@@ -343,34 +337,33 @@ void PairNNAngular2::compute(int eflag, int vflag)
       j &= NEIGHMASK;
       tagint jtag = tag[j];
 
-      double delxj = xtmp - x[j][0];
-      double delyj = ytmp - x[j][1];
-      double delzj = ztmp - x[j][2];
+      double xij = xi - x[j][0];
+      double yij = yi - x[j][1];
+      double zij = zi - x[j][2];
 
-      double rsq1 = delxj*delxj + delyj*delyj + delzj*delzj;
+      double rsq1 = xij*xij + yij*yij + zij*zij;
 
       if (rsq1 >= cutoff*cutoff) continue;
 
+      // store neighbour
+      neighShort[neighbours].push_back(j);
+
       // store pair coordinates
       double rij = sqrt(rsq1);
-      drij(0, neighbours) = delxj;
-      drij(1, neighbours) = delyj;
-      drij(2, neighbours) = delzj;
-      Rij(0, neighbours) = rij;
-      tagsj[neighbours] = j;
+      Rij[ii].push_back(rij);
 
       // apply 2-body symmetry
-      for (int s=0; s < m_numberOfSymmFunc; s++)
-        if ( m_parameters[s].size() == 3 ) 
-          inputVector(0,s) += G2(rij, m_parameters[s][0],
-                                 m_parameters[s][1], m_parameters[s][2]);
+      int s = 0;
+      for (auto param : m_parameters) {
+        if ( param.size() == 3 ) 
+          inputVector(0,s) += G2(rij, param[0], param[1], param[2]);
+        s++;
+      }
 
       // collect triplets for this (i,j)
       arma::mat Rik(1, jnum-1);
-      arma::mat drik(3, jnum-1);
       arma::mat CosTheta(1, jnum-1);
       arma::mat Rjk(1, jnum-1); 
-      arma::mat drjk(3, jnum-1);
 
       // three-body
       int neighk = 0;
@@ -382,109 +375,153 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
         //if (j == k) continue;
 
-        double delxk = xtmp - x[k][0];
-        double delyk = ytmp - x[k][1];
-        double delzk = ztmp - x[k][2];
+        double xik = xi - x[k][0];
+        double yik = yi - x[k][1];
+        double zik = zi - x[k][2];
 
-        double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
+        double rsq2 = xik*xik + yik*yik + zik*zik;  
 
         if (rsq2 >= cutoff*cutoff) continue;
         
         // calculate quantites needed in G4
         double rik = sqrt(rsq2);
-        double cosTheta = ( delxj*delxk + delyj*delyk + 
-                            delzj*delzk ) / (rij*rik);
+        double cosTheta = ( xij*xik + yij*yik + zij*zik ) / (rij*rik);
 
-        double delxjk = x[j][0] - x[k][0];
-        double delyjk = x[j][1] - x[k][1];
-        double delzjk = x[j][2] - x[k][2];
+        double xjk = x[j][0] - x[k][0];
+        double yjk = x[j][1] - x[k][1];
+        double zjk = x[j][2] - x[k][2];
 
-        double rjk = sqrt(delxjk*delxjk + delyjk*delyjk + delzjk*delzjk);
+        double rjk = sqrt(xjk*xjk + yjk*yjk + zjk*zjk);
 
         // collect triplets
-        drik(0, neighk) = delxk;
-        drik(1, neighk) = delyk;
-        drik(2, neighk) = delzk;
         Rik(0,neighk) = rik;
         CosTheta(0, neighk) = cosTheta;
         Rjk(0, neighk) = rjk;
-        drjk(0, neighk) = delxjk;
-        drjk(1, neighk) = delyjk;
-        drjk(2, neighk) = delzjk;
-        tagsk[neighbours].push_back(k);
-
-        // increment
+        tagsk[neighbours][neighk].push_back(k);
         neighk++;
 
         // apply 3-body symmetry
-        for (int s=0; s < m_numberOfSymmFunc; s++) 
-          if ( m_parameters[s].size() == 4 ) 
+        s = 0;
+        for (auto param : m_parameters) {
+          if ( param.size() == 4 ) 
             inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
-                                   m_parameters[s][0], m_parameters[s][1], 
-                                   m_parameters[s][2], m_parameters[s][3]);
+                                   param[0], param[1], param[2], param[3]);
+          s++;
+        }
       }
-
-      // skip if no triplets left
-      //if (neighk == 0) continue;
 
       // get rid of empty elements
       Rik = Rik.head_cols(neighk);
-      drik = drik.head_cols(neighk);
       CosTheta = CosTheta.head_cols(neighk);
       Rjk = Rjk.head_cols(neighk);
-      drjk = drjk.head_cols(neighk);
 
       // store all k's for curren (i,j) to compute forces later
-      Riks[neighbours]      = Rik;
-      driks[neighbours]     = drik;
-      cosThetas[neighbours] = CosTheta;
-      Rjks[neighbours]      = Rjk;
-      drjks[neighbours]     = drjk;
+      Riks[neighbours].push_back(Rik);
+      cosThetas[neighbours].push_back(CosTheta);
+      Rjks[neighbours].push_back(Rjk);
       neighbours++;
-    
-      /*std::cout << "neighk " << neighk << std::endl;
-      std::cout << "Rik: " << arma::size(Rik) << std::endl;
-      std::cout << Rik << std::endl;
-      std::cout << "drik: " << arma::size(drik) << std::endl;
-      std::cout << drik << std::endl;
-      std::cout << "cosTheta: " << arma::size(CosTheta) << std::endl;
-      std::cout << CosTheta << std::endl;
-      std::cout << "Rjk: " << arma::size(Rjk) << std::endl;
-      std::cout << Rjk << std::endl;*/
     }
-
-    // get rid of empty elements
-    Rij = Rij.head_cols(neighbours);
-    drij = drij.head_cols(neighbours);
-
-    /*std::cout << "neighbours " << neighbours << std::endl;
-    std::cout << "Rij: " << arma::size(Rij) << std::endl;
-    std::cout << Rij << std::endl;
-    std::cout << "drij: " << arma::size(drij) << std::endl;
-    std::cout << drij << std::endl;
-    cout << "Riks0: " << Riks[0] << std::endl;
-    cout << "Riks1: " << Riks[1] << std::endl;
-    cout << "driks0: " << driks[0] << std::endl;
-    cout << "driks1: " << driks[1] << std::endl;
-    cout << "cosThetas0: " << cosThetas[0] << endl;
-    cout << "cosThetas2: " << cosThetas[1] << endl;
-    cout << "Rjks0: " << Rjks[0] << endl;
-    cout << "Rjks1: " << Rjks[1] << endl;
-
-    std::cout << "inputVector: " << inputVector << endl;*/
 
     // apply NN to get energy
     evdwl = network(inputVector);
 
+    // store energy of ato i
     eatom[i] += evdwl;
 
     // set energy manually (not use ev_tally for energy)
     eng_vdwl += evdwl;
 
-    // backpropagate to obtain gradient of NN
+    // backpropagate to obtain gradient of NN and store
     arma::mat dEdG = backPropagation();
+    NNderivatives[ii] = dEdG;
+  }
 
-    double fx2 = 0;
+  // force calculations
+  // for each i: loop through neighShort list and calculate the derivatives
+  // of all the neighbour energies w.r.t. i's coordinates
+
+  for (int ii = 0; ii < inum; ii++) {
+
+    int i = ilist[ii];
+    tagint itag = tag[i];
+
+    double xi = x[i][0];
+    double yi = x[i][1];
+    double zi = x[i][2];
+
+    double fxtmp = 0;
+    double fytmp = 0;
+    double fztmp = 0;
+
+    // two-body interactions, skip half of them
+    int jnum = neighShort[i].size();
+
+    // loop through neighbours
+    for (int jj = 0; jj < jnum; jj++) {
+
+      int j = neighShort[ii][jj];
+      j &= NEIGHMASK;
+      tagint jtag = tag[j];
+
+      // loop through all symmetry functions of atom j
+      // (all symmetry vectors are equal for the time being)
+      for (auto param : m_parameters) {
+
+        // this should 
+        double rij = Rij[ii][jj];
+
+        // G2
+        if ( param.size() == 3 ) {
+
+          // find derivative of this G2 w.r.t. coordinates of atom i
+          double symDiff = dG2dR(rij, param[0], param[1], param[2]);
+
+          double fpair = -NNderivatives[j] * symDiff;
+
+          // is this the force on atom j or i???
+          f[j][0] += fpair*xi;
+          f[j][1] += fpair*yi;
+          f[j][2] += fpair*zi;
+        }
+
+        // G4
+        if ( param.size() == 4 ) {
+
+          int numberOfTriplets = arma::size(Riks[ii][jj])(1);
+
+          arma::mat dEdRj3(3, numberOfTriplets);
+          arma::mat dEdRk3(3, numberOfTriplets); // triplet force for all atoms k
+
+          double fj3[3];
+          double fk3[3];
+          for (int kk=0; kk < numberOfTriplets; kk++) {
+
+            // find derivative of this G4 w.r.t. coordinates of atom i
+            dG4dR(rij, Riks[ii][jj](0,kk), Rjks[ii][jj](0,kk), 
+                  cosThetas[ii][jj](0,kk),
+                  param[0], param[1], param[2], param[3], 
+                  dEdRj3, dEdRk3, xi, yi, zi);
+
+            // triplet force j
+            fj3[0] = NNderivatives[j] * dEdRj3(0,kk);
+            fj3[1] = NNderivatives[j] * dEdRj3(1,kk);
+            fj3[2] = NNderivatives[j] * dEdRj3(2,kk);
+
+            // triplet force k
+            fk3[0] = NNderivatives[tagsk[ii][jj][kk]] * dEdRk3(0,kk);
+            fk3[1] = NNderivatives[tagsk[ii][jj][kk]] * dEdRk3(1,kk);
+            fk3[2] = NNderivatives[tagsk[ii][jj][kk]] * dEdRk3(2,kk);
+
+            fxtmp += fpair*xi;
+            fytmp += fpair*yi;
+            fztmp += fpair*zi;
+          }
+        }
+      }
+    }
+  }
+
+    /*double fx2 = 0;
     double fy2 = 0;
     double fz2 = 0;
 
@@ -516,14 +553,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
         // loop through all pairs for N3L
         for (int l=0; l < neighbours; l++) {
           double fpair = fpairs(0,l);
-          //fx2 += fpair*drij(0,l);
-          //fy2 += fpair*drij(1,l);
-          //fz2 += fpair*drij(2,l);
+          fx2 += fpair*drij(0,l);
+          fy2 += fpair*drij(1,l);
+          fz2 += fpair*drij(2,l);
 
           // NOT N3L NOW
-          f[tagsj[l]][0] -= fpair*drij(0,l);
-          f[tagsj[l]][1] -= fpair*drij(1,l);
-          f[tagsj[l]][2] -= fpair*drij(2,l);
+          //f[tagsj[l]][0] -= fpair*drij(0,l);
+          //f[tagsj[l]][1] -= fpair*drij(1,l);
+          //f[tagsj[l]][2] -= fpair*drij(2,l);
 
           if (evflag) ev_tally_full(i, 0, 0, fpair,
                                     drij(0,l), drij(1,l), drij(2,l));
@@ -600,17 +637,17 @@ void PairNNAngular2::compute(int eflag, int vflag)
     }
 
     // update forces
-    //f[i][0] += fx2 + fx3j + fx3k;
-    //f[i][1] += fy2 + fy3j + fy3k;
-    //f[i][2] += fz2 + fz3j + fz3k;
-  }
+    f[i][0] += fx2 + fx3j + fx3k;
+    f[i][1] += fy2 + fy3j + fy3k;
+    f[i][2] += fz2 + fz3j + fz3k;
+  }*/
   if (vflag_fdotr) virial_fdotr_compute();
   myStep++;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void PairNNAngular2::allocate()
+void PairNNAngular3::allocate()
 {
   allocated = 1;
   int n = atom->ntypes;
@@ -622,7 +659,7 @@ void PairNNAngular2::allocate()
    global settings
 ------------------------------------------------------------------------- */
 
-void PairNNAngular2::settings(int narg, char **arg)
+void PairNNAngular3::settings(int narg, char **arg)
 {
   if (narg != 0) error->all(FLERR,"Illegal pair_style command");
 }
@@ -631,7 +668,7 @@ void PairNNAngular2::settings(int narg, char **arg)
    set coeffs for one or more type pairs
 ------------------------------------------------------------------------- */
 
-void PairNNAngular2::coeff(int narg, char **arg)
+void PairNNAngular3::coeff(int narg, char **arg)
 {
   if (!allocated) allocate();
 
@@ -664,7 +701,7 @@ void PairNNAngular2::coeff(int narg, char **arg)
    init specific to this pair style
 ------------------------------------------------------------------------- */
 
-void PairNNAngular2::init_style()
+void PairNNAngular3::init_style()
 {
   if (atom->tag_enable == 0)
     error->all(FLERR,"Pair style NN requires atom IDs");
@@ -681,7 +718,7 @@ void PairNNAngular2::init_style()
    init for one type pair i,j and corresponding j,i
 ------------------------------------------------------------------------- */
 
-double PairNNAngular2::init_one(int i, int j)
+double PairNNAngular3::init_one(int i, int j)
 {
   if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
 
@@ -690,7 +727,7 @@ double PairNNAngular2::init_one(int i, int j)
 
 /* ---------------------------------------------------------------------- */
 
-void PairNNAngular2::read_file(char *file)
+void PairNNAngular3::read_file(char *file)
 {
   // convert to string 
   std::string trainingDir(file);
