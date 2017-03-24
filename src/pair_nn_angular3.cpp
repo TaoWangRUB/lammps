@@ -255,7 +255,7 @@ void PairNNAngular3::dG4dR(double Rij, double Rik, double Rjk,
 
 
   // all k's give a triplet energy contributon to atom j
-  dEdRj3.row(0) =  (drij(0,0) * termij) + (drik.row(0) * crossTerm) -  
+  /*dEdRj3.row(0) =  (drij(0,0) * termij) + (drik.row(0) * crossTerm) -  
                    (drjk.row(0) * crossTermjk);
   dEdRj3.row(1) =  (drij(1,0) * termij) + (drik.row(1) * crossTerm) -  
                    (drjk.row(1) * crossTermjk);
@@ -268,7 +268,7 @@ void PairNNAngular3::dG4dR(double Rij, double Rik, double Rjk,
   dEdRk3.row(1) =  (drik.row(1) * termik) + (drij(1,0) * crossTerm) +  
                    (drjk.row(1) * crossTermjk);
   dEdRk3.row(2) =  (drik.row(2) * termik) + (drij(2,0) * crossTerm) +  
-                   (drjk.row(2) * crossTermjk);
+                   (drjk.row(2) * crossTermjk);*/
 }
 
 void PairNNAngular3::compute(int eflag, int vflag)
@@ -476,12 +476,12 @@ void PairNNAngular3::compute(int eflag, int vflag)
           // find derivative of this G2 w.r.t. coordinates of atom i
           double symDiff = dG2dR(rij, param[0], param[1], param[2]);
 
-          double fpair = -NNderivatives[j] * symDiff;
+          /*double fpair = -NNderivatives[j] * symDiff;
 
           // is this the force on atom j or i???
           f[j][0] += fpair*xi;
           f[j][1] += fpair*yi;
-          f[j][2] += fpair*zi;
+          f[j][2] += fpair*zi;*/
         }
 
         // G4
@@ -497,7 +497,7 @@ void PairNNAngular3::compute(int eflag, int vflag)
           for (int kk=0; kk < numberOfTriplets; kk++) {
 
             // find derivative of this G4 w.r.t. coordinates of atom i
-            dG4dR(rij, Riks[ii][jj](0,kk), Rjks[ii][jj](0,kk), 
+            /*dG4dR(rij, Riks[ii][jj](0,kk), Rjks[ii][jj](0,kk), 
                   cosThetas[ii][jj](0,kk),
                   param[0], param[1], param[2], param[3], 
                   dEdRj3, dEdRk3, xi, yi, zi);
@@ -514,7 +514,7 @@ void PairNNAngular3::compute(int eflag, int vflag)
 
             fxtmp += fpair*xi;
             fytmp += fpair*yi;
-            fztmp += fpair*zi;
+            fztmp += fpair*zi;*/
           }
         }
       }

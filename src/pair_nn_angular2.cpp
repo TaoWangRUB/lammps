@@ -330,12 +330,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
     // keep track of how many atoms below r2 and N3L
     int neighbours = 0; 
 
-    // make my own input vector
-    /*double delxs[] = {1.359823608, -1.419114673, -1.355367295, 1.325464909};
-    double delys[] = {1.402623758, -1.280200287, 1.404563335, -1.306627904};
-    double delzs[] = {1.259255454, 1.215290446, -1.423082273, -1.484003016};
-    jnum = 4;*/
-
     // collect all pairs
     for (int jj = 0; jj < jnum; jj++) {
 
@@ -516,9 +510,9 @@ void PairNNAngular2::compute(int eflag, int vflag)
         // loop through all pairs for N3L
         for (int l=0; l < neighbours; l++) {
           double fpair = fpairs(0,l);
-          //fx2 += fpair*drij(0,l);
-          //fy2 += fpair*drij(1,l);
-          //fz2 += fpair*drij(2,l);
+          fx2 += fpair*drij(0,l);
+          fy2 += fpair*drij(1,l);
+          fz2 += fpair*drij(2,l);
 
           // NOT N3L NOW
           f[tagsj[l]][0] -= fpair*drij(0,l);
@@ -599,6 +593,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
       }
     }
 
+
+
     // update forces
     //f[i][0] += fx2 + fx3j + fx3k;
     //f[i][1] += fy2 + fy3j + fy3k;
@@ -606,6 +602,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
   }
   if (vflag_fdotr) virial_fdotr_compute();
   myStep++;
+  cout << f[0][0] << " " << f[0][1] << " " << f[0][2] << endl;
+  exit(1);
 }
 
 /* ---------------------------------------------------------------------- */
