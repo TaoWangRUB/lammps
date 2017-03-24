@@ -105,7 +105,7 @@ void PairMySW::compute(int eflag, int vflag)
   int newton_pair = force->newton_pair;
 
   inum = list->inum; // length of list of neighbour lists
-  ilist = list->ilist; // list of i atoms for which neighbour lists exicst
+  ilist = list->ilist; // list of i atoms for which neighbour lists exist
   numneigh = list->numneigh; // length of each of the neighbour lists
   firstneigh = list->firstneigh; // neighbour lists for each atom i
 
@@ -232,6 +232,8 @@ void PairMySW::compute(int eflag, int vflag)
   }
 
   if (vflag_fdotr) virial_fdotr_compute();
+
+  cout << f[899][0] << " " << f[899][1] << " " << f[899][2] << endl;
 
   // EDITING: output neighbour lists and energies
   // after all computations are made
@@ -372,7 +374,6 @@ void PairMySW::compute(int eflag, int vflag)
       fy2 << " " << fz2 <<  " " << fx3 << " " << fy3 << " " << fz3 << std::endl;
   	}
     outfile.close();
-    exit(1);
   }
   myStep++;
 }

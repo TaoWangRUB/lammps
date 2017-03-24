@@ -602,8 +602,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
   }
   if (vflag_fdotr) virial_fdotr_compute();
   myStep++;
-  cout << f[0][0] << " " << f[0][1] << " " << f[0][2] << endl;
-  exit(1);
+  cout << f[899][0] << " " << f[899][1] << " " << f[899][2] << endl;
 }
 
 /* ---------------------------------------------------------------------- */
