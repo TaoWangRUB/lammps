@@ -110,6 +110,12 @@ void PairMySW::compute(int eflag, int vflag)
   firstneigh = list->firstneigh; // neighbour lists for each atom i
 
   // loop over full neighbor list of my atoms
+  int ghosts = 0;
+  // write out all forces
+  std::ofstream forces;
+  if (!myStep) forces.open("../TestNN/Tests/Forces/forcesSW.txt");
+  else if (!(myStep % 10))
+    forces.open("../TestNN/Tests/Forces/forcesSW.txt", std::ios::app);
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
@@ -156,6 +162,7 @@ void PairMySW::compute(int eflag, int vflag)
       rsq = delx*delx + dely*dely + delz*delz;
 
       ijparam = elem2param[itype][jtype][jtype];
+  
       if (rsq >= params[ijparam].cutsq) continue;
 
       twobody(&params[ijparam],rsq,fpair,eflag,evdwl);
@@ -163,6 +170,8 @@ void PairMySW::compute(int eflag, int vflag)
       fx2 += delx*fpair;
       fy2 += dely*fpair;
       fz2 += delz*fpair;
+
+      if (j > nlocal) ghosts++;
 
       f[j][0] -= delx*fpair;
       f[j][1] -= dely*fpair;
@@ -229,11 +238,21 @@ void PairMySW::compute(int eflag, int vflag)
     f[i][0] += fx2 + fx3j + fx3k;
     f[i][1] += fy2 + fy3j + fy3k;
     f[i][2] += fz2 + fz3j + fz3k;
+    if (!(myStep % 10)) 
+      forces << i << " " << f[i][0] << " " << 
+      f[i][1] << " " << f[i][2] << endl;
   }
+  forces.close();
+
+  cout << "Ghosts: " << ghosts << endl;
 
   if (vflag_fdotr) virial_fdotr_compute();
 
-  cout << f[899][0] << " " << f[899][1] << " " << f[899][2] << endl;
+  // write out forces to compare
+  int p = 0;
+  if (!myStep)
+    cout << x[p][0] << " " << x[p][1] << " " << x[p][2] << endl;
+  //cout << f[p][0] << " " << f[p][1] << " " << f[p][2] << endl;
 
   // EDITING: output neighbour lists and energies
   // after all computations are made
@@ -276,7 +295,7 @@ void PairMySW::compute(int eflag, int vflag)
 
   // write neighbour lists every 100 steps
   //bool write = 1;
-  if ( myStep == 10) {
+  if ( myStep == 1e6) {
   //if (write) {
     //std::cout << "Writing to file..." << std::endl;
     
@@ -311,16 +330,6 @@ void PairMySW::compute(int eflag, int vflag)
   	    j &= NEIGHMASK;
   	    jtag = tag[j];
   	    jtype = map[type[j]];
-
-        /*if (itag > jtag) {
-          if ((itag+jtag) % 2 == 0) continue;
-        } else if (itag < jtag) {
-          if ((itag+jtag) % 2 == 1) continue;
-        } else {
-          if (x[j][2] < ztmp) continue;
-          if (x[j][2] == ztmp && x[j][1] < ytmp) continue;
-          if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp) continue;
-        }*/
 
   	    delr1[0] = x[j][0] - xi;
   	    delr1[1] = x[j][1] - yi;

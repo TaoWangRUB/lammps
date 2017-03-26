@@ -294,6 +294,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
   double fxtmp,fytmp,fztmp;
 
+  int ghosts = 0;
   // loop over full neighbor list of my atoms
   for (int ii = 0; ii < inum; ii++) {
     
@@ -344,6 +345,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
       double rsq1 = delxj*delxj + delyj*delyj + delzj*delzj;
 
       if (rsq1 >= cutoff*cutoff) continue;
+
+      if (j > nlocal) ghosts++;
 
       // store pair coordinates
       double rij = sqrt(rsq1);
@@ -470,10 +473,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
     // apply NN to get energy
     evdwl = network(inputVector);
 
-    eatom[i] += evdwl;
+    eatom[i] += 0.5*evdwl;
 
     // set energy manually (not use ev_tally for energy)
-    eng_vdwl += evdwl;
+    eng_vdwl += 0.5*evdwl;
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation();
@@ -593,16 +596,28 @@ void PairNNAngular2::compute(int eflag, int vflag)
       }
     }
 
-
-
     // update forces
     //f[i][0] += fx2 + fx3j + fx3k;
     //f[i][1] += fy2 + fy3j + fy3k;
     //f[i][2] += fz2 + fz3j + fz3k;
   }
   if (vflag_fdotr) virial_fdotr_compute();
+
+  cout << "Ghosts: " << ghosts << endl;
+
+  // write out all forces
+  std::ofstream forces;
+  if (!myStep) forces.open("Tests/Forces/forces.txt");
+  else if (!(myStep % 10))
+    forces.open("Tests/Forces/forces.txt", std::ios::app);
+  for (int ii; ii < inum; ii++) {
+    int i = ilist[ii];
+    forces << i << " " << f[i][0] << " " << f[i][1] << " " << 
+    f[i][2] << endl;
+  }
+  pairForces.close();
+
   myStep++;
-  cout << f[899][0] << " " << f[899][1] << " " << f[899][2] << endl;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -665,8 +680,8 @@ void PairNNAngular2::init_style()
 {
   if (atom->tag_enable == 0)
     error->all(FLERR,"Pair style NN requires atom IDs");
-  //if (force->newton_pair == 0)
-    //error->all(FLERR,"Pair style NN requires newton pair on");
+  if (force->newton_pair == 0)
+    error->all(FLERR,"Pair style NN requires newton pair on");
 
   // need a full neighbor list
   int irequest = neighbor->request(this);

@@ -864,7 +864,7 @@ void Pair::ev_tally(int i, int j, int nlocal, int newton_pair,
       }
     }
     if (eflag_atom) {
-      epairhalf = evdwl;//0.5 * (evdwl + ecoul);
+      epairhalf = 0.5 * (evdwl + ecoul);
       if (newton_pair || i < nlocal) eatom[i] += epairhalf;
       if (newton_pair || j < nlocal) eatom[j] += epairhalf;
     }
@@ -1149,9 +1149,9 @@ void Pair::ev_tally3(int i, int j, int k, double evdwl, double ecoul,
     }
     if (eflag_atom) {
       epairthird = THIRD * (evdwl + ecoul);
-      eatom[i] += evdwl;//epairthird;
-      eatom[j] += evdwl;//epairthird;
-      eatom[k] += evdwl;//epairthird;
+      eatom[i] += epairthird;
+      eatom[j] += epairthird;
+      eatom[k] += epairthird;
     }
   }
 
