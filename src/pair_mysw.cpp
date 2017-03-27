@@ -34,6 +34,7 @@
 #include <iostream>     // testing
 #include <time.h>       // time_t, struct tm, time, localtime, strftime
 #include <iomanip>
+#include <armadillo>  
 
 
 using namespace LAMMPS_NS;
@@ -111,11 +112,6 @@ void PairMySW::compute(int eflag, int vflag)
 
   // loop over full neighbor list of my atoms
   int ghosts = 0;
-  // write out all forces
-  std::ofstream forces;
-  if (!myStep) forces.open("../TestNN/Tests/Forces/forcesSW.txt");
-  else if (!(myStep % 10))
-    forces.open("../TestNN/Tests/Forces/forcesSW.txt", std::ios::app);
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
@@ -171,8 +167,6 @@ void PairMySW::compute(int eflag, int vflag)
       fy2 += dely*fpair;
       fz2 += delz*fpair;
 
-      if (j > nlocal) ghosts++;
-
       f[j][0] -= delx*fpair;
       f[j][1] -= dely*fpair;
       f[j][2] -= delz*fpair;
@@ -200,6 +194,7 @@ void PairMySW::compute(int eflag, int vflag)
       delr1[2] = x[j][2] - ztmp;
       rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
       if (rsq1 >= params[ijparam].cutsq) continue;
+      if (j > nlocal) ghosts++;
 
       for (kk = jj+1; kk < jnum; kk++) {
         k = jlist[kk];
@@ -238,21 +233,27 @@ void PairMySW::compute(int eflag, int vflag)
     f[i][0] += fx2 + fx3j + fx3k;
     f[i][1] += fy2 + fy3j + fy3k;
     f[i][2] += fz2 + fz3j + fz3k;
-    if (!(myStep % 10)) 
+    
+    /*if (!(myStep % 10)) 
       forces << i << " " << f[i][0] << " " << 
-      f[i][1] << " " << f[i][2] << endl;
+      f[i][1] << " " << f[i][2] << endl;*/
   }
-  forces.close();
 
-  cout << "Ghosts: " << ghosts << endl;
+  // write out all forces
+  /*std::ofstream forces;
+  if (!myStep) forces.open("../TestNN/Tests/Forces/Box/forcesSWL15.txt");
+  else if (!(myStep % 10))
+    forces.open("../TestNN/Tests/Forces/Box/forcesSWL15.txt", std::ios::app);
+  for (int ii; ii < inum; ii++) {
+    int i = ilist[ii];
+    forces << i << " " << f[i][0] << " " << f[i][1] << " " << 
+    f[i][2] << endl;
+  }
+  forces.close();*/
+
+  //cout << "Ghosts: " << ghosts << endl;
 
   if (vflag_fdotr) virial_fdotr_compute();
-
-  // write out forces to compare
-  int p = 0;
-  if (!myStep)
-    cout << x[p][0] << " " << x[p][1] << " " << x[p][2] << endl;
-  //cout << f[p][0] << " " << f[p][1] << " " << f[p][2] << endl;
 
   // EDITING: output neighbour lists and energies
   // after all computations are made
@@ -294,9 +295,9 @@ void PairMySW::compute(int eflag, int vflag)
   outfile.close();*/
 
   // write neighbour lists every 100 steps
-  //bool write = 1;
-  if ( myStep == 1e6) {
-  //if (write) {
+  bool write = 1;
+  //if ( myStep == 1e6) {
+  if (write) {
     //std::cout << "Writing to file..." << std::endl;
     
     outfile.open(filename.c_str(), std::ios::app);
@@ -304,16 +305,24 @@ void PairMySW::compute(int eflag, int vflag)
     // sampling just a few configs for each time step
     // because the system is quite homogeneous
 
-    // decide number of samples for each time step
+    // sample ONE atom
     int chosenAtom = 899;//inum/2;
-    double energy = 0;
     double fx2 = 0;
     double fy2 = 0;
     double fz2 = 0;
     double fx3 = 0;
     double fy3 = 0;
     double fz3 = 0;
+
+    // sample several atoms
+    /*int nAtoms;
+    if (myStep < 50) nAtoms = 100;
+    else nAtoms = 10;      
+    arma::ivec atoms = arma::randi<arma::ivec>
+                       (nAtoms, arma::distr_param(0, inum));*/
+
     for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
+    //for (auto ii : atoms) {
   	  i = ilist[ii];
   	  double xi = x[i][0];
   	  double yi = x[i][1];
@@ -322,6 +331,8 @@ void PairMySW::compute(int eflag, int vflag)
       /*if (myStep == 0)
         std::cout << "Chosen atom: " << i << " " << xi << " " << yi << " " 
                   << zi << " " << std::endl;*/
+
+      double energy = 0;
 
   	  jlist = firstneigh[i];
   	  jnum = numneigh[i];
@@ -350,10 +361,9 @@ void PairMySW::compute(int eflag, int vflag)
 
         // save positions of neighbour j relative to position
         // of central atom i for use in training
-        outfile << std::setprecision(10) << -delr1[0] << " " << -delr1[1] << " " 
+        outfile << std::setprecision(17) << -delr1[0] << " " << -delr1[1] << " " 
                 << -delr1[2] << " " << rsq1 << " ";
                    
-        // EDIT //
         for (kk = jj+1; kk < jnum; kk++) {
           k = jlist[kk];
           k &= NEIGHMASK;
@@ -378,9 +388,9 @@ void PairMySW::compute(int eflag, int vflag)
 
   	  }
       // store energy and force
-  		outfile << std::setprecision(10) << energy 
-      << " " << fx2 << " " <<
-      fy2 << " " << fz2 <<  " " << fx3 << " " << fy3 << " " << fz3 << std::endl;
+  		outfile << std::setprecision(17) << energy << endl;
+      //<< " " << fx2 << " " <<
+      //fy2 << " " << fz2 <<  " " << fx3 << " " << fy3 << " " << fz3 << std::endl;
   	}
     outfile.close();
   }

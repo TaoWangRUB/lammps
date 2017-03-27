@@ -252,7 +252,7 @@ void PairNNAngular2::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk,
   arma::mat termij = (cosRijInv2 % term1) - term2 - RijInv*term3ij;
   arma::mat termik = (cosRikInv2 % term1) - term2 - RikInv%term3ik;
   arma::mat crossTerm = -term1 % RijRikInv; 
-  arma::mat crossTermjk = termjk / Rjk;
+  arma::mat crossTermjk = 0;//termjk / Rjk;
 
 
   // all k's give a triplet energy contributon to atom j
@@ -371,13 +371,13 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
       // three-body
       int neighk = 0;
-      for (int kk = jj+1; kk < jnum; kk++) {
+      for (int kk = 0; kk < jnum; kk++) {
 
         int k = jlist[kk];
         k &= NEIGHMASK;
         tagint ktag = tag[k];
 
-        //if (j == k) continue;
+        if (j == k) continue;
 
         double delxk = xtmp - x[k][0];
         double delyk = ytmp - x[k][1];
@@ -422,7 +422,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
       }
 
       // skip if no triplets left
-      //if (neighk == 0) continue;
+      if (neighk == 0) {
+        neighbours++;
+        continue;
+      }
 
       // get rid of empty elements
       Rik = Rik.head_cols(neighk);
@@ -431,52 +434,26 @@ void PairNNAngular2::compute(int eflag, int vflag)
       Rjk = Rjk.head_cols(neighk);
       drjk = drjk.head_cols(neighk);
 
-      // store all k's for curren (i,j) to compute forces later
+      // store all k's for current (i,j) to compute forces later
       Riks[neighbours]      = Rik;
       driks[neighbours]     = drik;
       cosThetas[neighbours] = CosTheta;
       Rjks[neighbours]      = Rjk;
       drjks[neighbours]     = drjk;
       neighbours++;
-    
-      /*std::cout << "neighk " << neighk << std::endl;
-      std::cout << "Rik: " << arma::size(Rik) << std::endl;
-      std::cout << Rik << std::endl;
-      std::cout << "drik: " << arma::size(drik) << std::endl;
-      std::cout << drik << std::endl;
-      std::cout << "cosTheta: " << arma::size(CosTheta) << std::endl;
-      std::cout << CosTheta << std::endl;
-      std::cout << "Rjk: " << arma::size(Rjk) << std::endl;
-      std::cout << Rjk << std::endl;*/
     }
 
     // get rid of empty elements
     Rij = Rij.head_cols(neighbours);
     drij = drij.head_cols(neighbours);
 
-    /*std::cout << "neighbours " << neighbours << std::endl;
-    std::cout << "Rij: " << arma::size(Rij) << std::endl;
-    std::cout << Rij << std::endl;
-    std::cout << "drij: " << arma::size(drij) << std::endl;
-    std::cout << drij << std::endl;
-    cout << "Riks0: " << Riks[0] << std::endl;
-    cout << "Riks1: " << Riks[1] << std::endl;
-    cout << "driks0: " << driks[0] << std::endl;
-    cout << "driks1: " << driks[1] << std::endl;
-    cout << "cosThetas0: " << cosThetas[0] << endl;
-    cout << "cosThetas2: " << cosThetas[1] << endl;
-    cout << "Rjks0: " << Rjks[0] << endl;
-    cout << "Rjks1: " << Rjks[1] << endl;
-
-    std::cout << "inputVector: " << inputVector << endl;*/
-
     // apply NN to get energy
     evdwl = network(inputVector);
 
-    eatom[i] += 0.5*evdwl;
+    eatom[i] += evdwl;
 
     // set energy manually (not use ev_tally for energy)
-    eng_vdwl += 0.5*evdwl;
+    eng_vdwl += evdwl;
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation();
@@ -603,19 +580,19 @@ void PairNNAngular2::compute(int eflag, int vflag)
   }
   if (vflag_fdotr) virial_fdotr_compute();
 
-  cout << "Ghosts: " << ghosts << endl;
+  //cout << "Ghosts: " << ghosts << endl;
 
   // write out all forces
-  std::ofstream forces;
-  if (!myStep) forces.open("Tests/Forces/forces.txt");
-  else if (!(myStep % 10))
-    forces.open("Tests/Forces/forces.txt", std::ios::app);
+  /*std::ofstream forces;
+  if (!myStep) forces.open("Tests/Forces/Box/forcesNNStart.txt");
+  else if (!(myStep % 2))
+    forces.open("Tests/Forces/Box/forcesNNStart.txt", std::ios::app);
   for (int ii; ii < inum; ii++) {
     int i = ilist[ii];
     forces << i << " " << f[i][0] << " " << f[i][1] << " " << 
     f[i][2] << endl;
   }
-  pairForces.close();
+  forces.close();*/
 
   myStep++;
 }
