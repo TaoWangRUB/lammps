@@ -252,7 +252,7 @@ void PairNNAngular2::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk,
   arma::mat termij = (cosRijInv2 % term1) - term2 - RijInv*term3ij;
   arma::mat termik = (cosRikInv2 % term1) - term2 - RikInv%term3ik;
   arma::mat crossTerm = -term1 % RijRikInv; 
-  arma::mat crossTermjk = 0;//termjk / Rjk;
+  arma::mat crossTermjk = termjk / Rjk;
 
 
   // all k's give a triplet energy contributon to atom j
@@ -328,6 +328,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
     // input vector to NN
     arma::mat inputVector(1, m_numberOfSymmFunc, arma::fill::zeros);
 
+    // make my own input vector
+    double delxs[] = {1.360657349, -1.382538701, -1.356904817, 1.347116757};
+    double delys[] = {1.377881253, -1.325733246, 1.378576362, -1.334633321};
+    double delzs[] = {1.313130941, 1.293225662, -1.387754934, -1.412519148};
+    jnum = 4;
+
     // keep track of how many atoms below r2 and N3L
     int neighbours = 0; 
 
@@ -338,9 +344,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
       j &= NEIGHMASK;
       tagint jtag = tag[j];
 
-      double delxj = xtmp - x[j][0];
-      double delyj = ytmp - x[j][1];
-      double delzj = ztmp - x[j][2];
+      //double delxj = xtmp - x[j][0];
+      //double delyj = ytmp - x[j][1];
+      //double delzj = ztmp - x[j][2];
+      double delxj = delxs[jj];
+      double delyj = delys[jj];
+      double delzj = delzs[jj];
 
       double rsq1 = delxj*delxj + delyj*delyj + delzj*delzj;
 
@@ -371,17 +380,21 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
       // three-body
       int neighk = 0;
-      for (int kk = 0; kk < jnum; kk++) {
+      for (int kk = jj+1; kk < jnum; kk++) {
 
         int k = jlist[kk];
         k &= NEIGHMASK;
         tagint ktag = tag[k];
 
-        if (j == k) continue;
+        //if (j == k) continue;
 
-        double delxk = xtmp - x[k][0];
-        double delyk = ytmp - x[k][1];
-        double delzk = ztmp - x[k][2];
+        //double delxk = xtmp - x[k][0];
+        //double delyk = ytmp - x[k][1];
+        //double delzk = ztmp - x[k][2];
+        double delxk = delxs[kk];
+        double delyk = delys[kk];
+        double delzk = delzs[kk];
+
 
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
@@ -392,9 +405,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
         double cosTheta = ( delxj*delxk + delyj*delyk + 
                             delzj*delzk ) / (rij*rik);
 
-        double delxjk = x[j][0] - x[k][0];
-        double delyjk = x[j][1] - x[k][1];
-        double delzjk = x[j][2] - x[k][2];
+        //double delxjk = x[j][0] - x[k][0];
+        //double delyjk = x[j][1] - x[k][1];
+        //double delzjk = x[j][2] - x[k][2];
+        double delxjk = delxj - delxk;
+        double delyjk = delyj - delyk;
+        double delzjk = delzj - delzk;
+        cout << "xjk: " << x[j][0] - x[k][0] << endl;
+        cout << "my xjk: " << delxjk << endl;
 
         double rjk = sqrt(delxjk*delxjk + delyjk*delyjk + delzjk*delzjk);
 
@@ -494,7 +512,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
           fy2 += fpair*drij(1,l);
           fz2 += fpair*drij(2,l);
 
-          // NOT N3L NOW
+          // 
           f[tagsj[l]][0] -= fpair*drij(0,l);
           f[tagsj[l]][1] -= fpair*drij(1,l);
           f[tagsj[l]][2] -= fpair*drij(2,l);
@@ -529,6 +547,21 @@ void PairNNAngular2::compute(int eflag, int vflag)
                 m_parameters[s][0], m_parameters[s][1], 
                 m_parameters[s][2], m_parameters[s][3], 
                 dEdRj3, dEdRk3, drij.col(l), driks[l], drjks[l]); 
+
+          cout << "params: " << m_parameters[s][0] << " " <<
+          m_parameters[s][1] << " " << m_parameters[s][2] << " "
+          << m_parameters[s][3] << endl;
+          cout << "l: " << l << endl;
+          cout << "drij: " << drij.col(l) << endl;
+          cout << "drik: " << driks[l] << endl;
+          cout << "drjk: " << drjks[l] << endl;
+          cout << "Rij: " << Rij(0,l) << endl;
+          cout << "Rik: " << Riks[l] << endl;
+          cout << "Rjk: " << Rjks[l] << endl;
+          cout << "cosTheta: " << cosThetas[l] << endl;
+          cout << "dEdRj3: " << arma::sum(dEdRj3, 1) << endl;
+          cout << "dEdRk3: " << dEdRk3 << endl;
+          exit(1);
 
           // N3L: add 3-body forces for i and k
           double fj3[3];
