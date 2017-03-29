@@ -61,6 +61,16 @@ class PairNNAngular2 : public Pair {
              double zeta, double lambda,
              arma::mat &dEdRj3, arma::mat &dEdRk3,
              arma::mat drij, arma::mat drik, arma::mat drjk);
+  void dG4dj(double xj, double yj, double zj, 
+               double xk, double yk, double zk, 
+               double Rj, double Rk, double Rjk, double CosTheta,
+               double eta, double Rc, double zeta, double Lambda,
+               double *dGj);
+  void dG4dk(double xj, double yj, double zj, 
+               double xk, double yk, double zk, 
+               double Rj, double Rk, double Rjk, double CosTheta,
+               double eta, double Rc, double zeta, double Lambda, 
+               double *dGk);
  
  protected:
   double cutoff;
