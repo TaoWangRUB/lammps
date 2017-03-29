@@ -41,6 +41,9 @@ using namespace LAMMPS_NS;
 #define MAXLINE 1024
 #define DELTA 4
 
+using std::cout;
+using std::endl;
+
 /* ---------------------------------------------------------------------- */
 
 PairMyVashishta::PairMyVashishta(LAMMPS *lmp) : Pair(lmp)
@@ -227,7 +230,13 @@ void PairMyVashishta::compute(int eflag, int vflag)
     f[i][0] += fxtmp;
     f[i][1] += fytmp;
     f[i][2] += fztmp;
+
+    if (i == 0)
+    cout << i << " " << f[i][0] << " " << f[i][1] << " " << 
+    f[i][2] << endl;
   }
+  cout << "after: " << f[0][0] << " " << f[0][1] << " " << f[0][2] << endl;
+
 
   if (vflag_fdotr) virial_fdotr_compute();
 
