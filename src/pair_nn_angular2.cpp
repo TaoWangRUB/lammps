@@ -692,8 +692,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
             fk3[1] = -dEdG(0,s) * dGk[1];
             fk3[2] = -dEdG(0,s) * dGk[2];
 
-
-
             // add both j and k to atom i
             fx3j += fj3[0];
             fy3j += fj3[1];
