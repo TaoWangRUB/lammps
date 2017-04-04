@@ -436,9 +436,9 @@ void PairNNAngular2::compute(int eflag, int vflag)
       double delxj = xtmp - x[j][0];
       double delyj = ytmp - x[j][1];
       double delzj = ztmp - x[j][2];
-      //double delxj = delxs[jj];
-      //double delyj = delys[jj];
-      //double delzj = delzs[jj];
+      /*double delxj = delxs[jj];
+      double delyj = delys[jj];
+      double delzj = delzs[jj];*/
 
       double rsq1 = delxj*delxj + delyj*delyj + delzj*delzj;
 
@@ -476,13 +476,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
         tagint ktag = tag[k];
 
         //if (j == k) continue;
+        //if (i == k) continue;
 
         double delxk = xtmp - x[k][0];
         double delyk = ytmp - x[k][1];
         double delzk = ztmp - x[k][2];
-        //double delxk = delxs[kk];
-        //double delyk = delys[kk];
-        //double delzk = delzs[kk];
+        /*double delxk = delxs[kk];
+        double delyk = delys[kk];
+        double delzk = delzs[kk];*/
 
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
@@ -550,6 +551,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
     // get rid of empty elements
     Rij = Rij.head_cols(neighbours);
     drij = drij.head_cols(neighbours);
+
+    // check
+    for (auto inputValue : inputVector) {
+      if (inputValue > 4.19236576404)
+        cout << "Large input value: " << inputValue << endl;
+      else if (inputValue < 0.0)
+        cout << "Negative input value: " << inputValue << endl;
+    }
 
     // apply NN to get energy
     evdwl = network(inputVector);
@@ -721,19 +730,23 @@ void PairNNAngular2::compute(int eflag, int vflag)
     }
 
     // update forces
-    f[i][0] += fx2 + fx3j + fx3k;
-    f[i][1] += fy2 + fy3j + fy3k;
-    f[i][2] += fz2 + fz3j + fz3k;
+    //f[i][0] += fx3j + fx3k;
+    //f[i][1] += fy3j + fy3k;
+    //f[i][2] += fz3j + fz3k;
   }
+
   if (vflag_fdotr) virial_fdotr_compute();
 
   //cout << "Ghosts: " << ghosts << endl;
 
   // write out all forces
   /*std::ofstream forces;
-  if (!myStep) forces.open("Tests/Forces/Box/forcesNNStart.txt");
-  else if (!(myStep % 2))
-    forces.open("Tests/Forces/Box/forcesNNStart.txt", std::ios::app);
+    if (!myStep) {
+    forces.open("../TestNN/Tests/Forces/Box/forcesNN.txt");
+    forces << "Every 100 steps for 1000 steps" << endl;
+  }
+  else if (!(myStep % 100))
+    forces.open("Tests/Forces/Box/forcesNN.txt", std::ios::app);
   for (int ii; ii < inum; ii++) {
     int i = ilist[ii];
     forces << i << " " << f[i][0] << " " << f[i][1] << " " << 
@@ -804,8 +817,8 @@ void PairNNAngular2::init_style()
 {
   if (atom->tag_enable == 0)
     error->all(FLERR,"Pair style NN requires atom IDs");
-  if (force->newton_pair == 0)
-    error->all(FLERR,"Pair style NN requires newton pair on");
+  //if (force->newton_pair == 0)
+  //  error->all(FLERR,"Pair style NN requires newton pair on");
 
   // need a full neighbor list
   int irequest = neighbor->request(this);

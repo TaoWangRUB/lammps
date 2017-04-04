@@ -286,11 +286,11 @@ void PairMyVashishta::compute(int eflag, int vflag)
         jtag = tag[j];
         jtype = map[type[j]];
 
-        delx = xi - x[j][0];
-        dely = yi - x[j][1];
-        delz = zi - x[j][2];
+        double xij = xi - x[j][0];
+        double yij = yi - x[j][1];
+        double zij = zi - x[j][2];
 
-        rsq = delx*delx + dely*dely + delz*delz;
+        double rij2 = xij*xij + yij*yij + zij*zij;
         
         ijparam = elem2param[itype][jtype][jtype];
         std::cout << "itype: " << itype << "jtype: " << jtype << std::endl;
@@ -299,17 +299,30 @@ void PairMyVashishta::compute(int eflag, int vflag)
         std::cout << std::endl;  
   
         // pair cut
-        if (rsq >= params[ijparam].cutsq) continue;
+        if (rij2 >= params[ijparam].cutsq) continue;
 
         // write to pair file
-        outfiles[0] << std::setprecision(10) << delx << " " << dely << " " <<
-        delz << " " << rsq << " ";
+        outfiles[0] << std::setprecision(10) << xij << " " << yij << " " <<
+        zij << " " << rij2 << " ";
 
         // triplet cut
-        if (rsq >= params[ijparam].cutsq2) continue;
+        if (rij2 >= params[ijparam].cutsq2) continue;
 
-        outfiles[1] << std::setprecision(10) << delx << " " << dely << " " <<
-        delz << " " << rsq << " ";
+        outfiles[1] << std::setprecision(10) << xij << " " << yij << " " <<
+        zij << " " << rij2 << " ";
+
+        for (kk = jj+1; kk < jnum; kk++) {
+          k = neighshort[kk];
+          ktype = map[type[k]];
+          ikparam = elem2param[itype][ktype][ktype];
+          ijkparam = elem2param[itype][jtype][ktype];
+
+          delr2[0] = x[k][0] - xtmp;
+          delr2[1] = x[k][1] - ytmp;
+          delr2[2] = x[k][2] - ztmp;
+          rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
+          if (rsq2 >= params[ikparam].cutsq2) continue;
+        }
       }
 
       // store energy

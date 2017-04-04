@@ -155,6 +155,7 @@ void PairMySW::compute(int eflag, int vflag)
       delx = xtmp - x[j][0];
       dely = ytmp - x[j][1];
       delz = ztmp - x[j][2];
+
       rsq = delx*delx + dely*dely + delz*delz;
 
       ijparam = elem2param[itype][jtype][jtype];
@@ -189,9 +190,11 @@ void PairMySW::compute(int eflag, int vflag)
       j &= NEIGHMASK;
       jtype = map[type[j]];
       ijparam = elem2param[itype][jtype][jtype];
+
       delr1[0] = x[j][0] - xtmp;
       delr1[1] = x[j][1] - ytmp;
       delr1[2] = x[j][2] - ztmp;
+
       rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
       if (rsq1 >= params[ijparam].cutsq) continue;
       if (j > nlocal) ghosts++;
@@ -206,6 +209,7 @@ void PairMySW::compute(int eflag, int vflag)
         delr2[0] = x[k][0] - xtmp;
         delr2[1] = x[k][1] - ytmp;
         delr2[2] = x[k][2] - ztmp;
+
         rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
         if (rsq2 >= params[ikparam].cutsq) continue;
 
@@ -233,17 +237,16 @@ void PairMySW::compute(int eflag, int vflag)
     f[i][0] += fx2 + fx3j + fx3k;
     f[i][1] += fy2 + fy3j + fy3k;
     f[i][2] += fz2 + fz3j + fz3k;
-    
-    /*if (!(myStep % 10)) 
-      forces << i << " " << f[i][0] << " " << 
-      f[i][1] << " " << f[i][2] << endl;*/
   }
 
   // write out all forces
   /*std::ofstream forces;
-  if (!myStep) forces.open("../TestNN/Tests/Forces/Box/forcesSWL15.txt");
-  else if (!(myStep % 10))
-    forces.open("../TestNN/Tests/Forces/Box/forcesSWL15.txt", std::ios::app);
+  if (!myStep) {
+    forces.open("../TestNN/Tests/Forces/ExpandedBox/forcesSW.txt");
+    forces << "Every 100 steps for 1000 steps" << endl;
+  }
+  else if (!(myStep % 100))
+    forces.open("../TestNN/Tests/Forces/ExpandedBox/forcesSW.txt", std::ios::app);
   for (int ii; ii < inum; ii++) {
     int i = ilist[ii];
     forces << i << " " << f[i][0] << " " << f[i][1] << " " << 
@@ -252,6 +255,18 @@ void PairMySW::compute(int eflag, int vflag)
   forces.close();*/
 
   //cout << "Ghosts: " << ghosts << endl;
+
+  /*double totalForceX = 0;
+  double totalForceY = 0;
+  double totalForceZ = 0;
+  for (ii = 0; ii < inum; ii++) {
+    i = ilist[ii];
+    totalForceX += f[i][0];
+    totalForceY += f[i][1];
+    totalForceZ += f[i][2];
+  }
+
+  cout << totalForceX << " " << totalForceY << " " << totalForceZ << endl;*/
 
   if (vflag_fdotr) virial_fdotr_compute();
 
@@ -295,9 +310,9 @@ void PairMySW::compute(int eflag, int vflag)
   outfile.close();*/
 
   // write neighbour lists every 100 steps
-  bool write = 1;
-  //if ( myStep == 1e6) {
-  if (write) {
+  //bool write = 1;
+  if ( !(myStep % 10) ) {
+  //if (write) {
     //std::cout << "Writing to file..." << std::endl;
     
     outfile.open(filename.c_str(), std::ios::app);
@@ -317,12 +332,14 @@ void PairMySW::compute(int eflag, int vflag)
     // sample several atoms
     /*int nAtoms;
     if (myStep < 50) nAtoms = 100;
-    else nAtoms = 10;      
+    else nAtoms = 10;
+    nAtoms = 10;      
     arma::ivec atoms = arma::randi<arma::ivec>
                        (nAtoms, arma::distr_param(0, inum));*/
 
-    for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
+    //for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
     //for (auto ii : atoms) {
+    for (ii = 0; ii < inum; ii++) {
   	  i = ilist[ii];
   	  double xi = x[i][0];
   	  double yi = x[i][1];
