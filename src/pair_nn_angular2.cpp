@@ -209,6 +209,15 @@ double PairNNAngular2::G4(double rij, double rik, double rjk, double cosTheta,
          Fc(rij, Rc, false) * Fc(rik, Rc, false) * Fc(rjk, Rc, true);
 }
 
+double PairNNAngular2::G5(double rij, double rik, double cosTheta, 
+                          double eta, double Rc, double zeta, double lambda) {
+
+  return pow(2, 1-zeta) * 
+         pow(1 + lambda*cosTheta, zeta) *  
+         exp( -eta*(rij*rij + rik*rik) ) * 
+         Fc(rij, Rc, false) * Fc(rik, Rc, false);
+}
+
 
 void PairNNAngular2::dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, 
                           arma::mat cosTheta, double eta, double Rc, 
@@ -361,9 +370,72 @@ void PairNNAngular2::dG4dk(double xj, double yj, double zj,
     (CosTheta*Lambda + 1));
 }
 
+void PairNNAngular2::dG5dj(double xj, double yj, double zj, 
+            double xk, double yk, double zk, 
+            double Rj, double Rk, double CosTheta, 
+            double eta, double Rc, double zeta, double Lambda, 
+            double *dGj) {
+
+  double Rj2 = Rj*Rj;
+  double Rk2 = Rk*Rk;
+  double Fcj = Fc(Rj, Rc, false);
+  double Fck = Fc(Rk, Rc, false);
+  double dFcj = dFcdR(Rj, Rc, false);
+
+  dGj[0] = pow(2, -zeta)*Fck*(-2*Fcj*Lambda*zeta*
+    pow(CosTheta*Lambda + 1, zeta)*(CosTheta*Rk*xj - Rj*xk) - 
+    4*Fcj*pow(Rj, 2)*Rk*eta*xj*pow(CosTheta*Lambda + 1, zeta + 1) + 
+    2.0*Rj*Rk*dFcj*xj*pow(CosTheta*Lambda + 1, zeta + 1))*
+    exp(-eta*(Rj2 + Rk2))/(pow(Rj, 2)*Rk*(CosTheta*Lambda + 1));
+
+  dGj[1] = pow(2, -zeta)*Fck*(-2*Fcj*Lambda*zeta*
+    pow(CosTheta*Lambda + 1, zeta)*(CosTheta*Rk*yj - Rj*yk) - 
+    4*Fcj*pow(Rj, 2)*Rk*eta*yj*pow(CosTheta*Lambda + 1, zeta + 1) + 
+    2.0*Rj*Rk*dFcj*yj*pow(CosTheta*Lambda + 1, zeta + 1))*
+    exp(-eta*(Rj2 + Rk2))/(pow(Rj, 2)*Rk*(CosTheta*Lambda + 1));
+
+  dGj[2] = pow(2, -zeta)*Fck*(-2*Fcj*Lambda*zeta*
+    pow(CosTheta*Lambda + 1, zeta)*(CosTheta*Rk*zj - Rj*zk) - 
+    4*Fcj*pow(Rj, 2)*Rk*eta*zj*pow(CosTheta*Lambda + 1, zeta + 1) + 
+    2.0*Rj*Rk*dFcj*zj*pow(CosTheta*Lambda + 1, zeta + 1))*
+    exp(-eta*(Rj2 + Rk2))/(pow(Rj, 2)*Rk*(CosTheta*Lambda + 1));
+}
+
+void PairNNAngular2::dG5dk(double xj, double yj, double zj, 
+            double xk, double yk, double zk, 
+            double Rj, double Rk, double CosTheta, 
+            double eta, double Rc, double zeta, double Lambda, 
+            double *dGk) {
+
+  double Rj2 = Rj*Rj;
+  double Rk2 = Rk*Rk;
+  double Fcj = Fc(Rj, Rc, false);
+  double Fck = Fc(Rk, Rc, false);
+  double dFck = dFcdR(Rk, Rc, false);
+
+  dGk[0] = pow(2, -zeta)*Fcj*(-2*Fck*Lambda*zeta*
+    pow(CosTheta*Lambda + 1, zeta)*(CosTheta*Rj*xk - Rk*xj) - 
+    4*Fck*Rj*pow(Rk, 2)*eta*xk*pow(CosTheta*Lambda + 1, zeta + 1) + 
+    2.0*Rj*Rk*dFck*xk*pow(CosTheta*Lambda + 1, zeta + 1))*
+    exp(-eta*(Rj2 + Rk2))/(Rj*pow(Rk, 2)*(CosTheta*Lambda + 1));
+
+  dGk[1] = pow(2, -zeta)*Fcj*(-2*Fck*Lambda*zeta*pow
+    (CosTheta*Lambda + 1, zeta)*(CosTheta*Rj*yk - Rk*yj) - 
+    4*Fck*Rj*pow(Rk, 2)*eta*yk*pow(CosTheta*Lambda + 1, zeta + 1) + 
+    2.0*Rj*Rk*dFck*yk*pow(CosTheta*Lambda + 1, zeta + 1))*
+    exp(-eta*(Rj2 + Rk2))/(Rj*pow(Rk, 2)*(CosTheta*Lambda + 1));
+
+  dGk[2] = pow(2, -zeta)*Fcj*(-2*Fck*Lambda*zeta*pow
+    (CosTheta*Lambda + 1, zeta)*(CosTheta*Rj*zk - Rk*zj) - 
+    4*Fck*Rj*pow(Rk, 2)*eta*zk*pow(CosTheta*Lambda + 1, zeta + 1) + 
+    2.0*Rj*Rk*dFck*zk*pow(CosTheta*Lambda + 1, zeta + 1))*
+    exp(-eta*(Rj2 + Rk2))/(Rj*pow(Rk, 2)*(CosTheta*Lambda + 1));
+}
+
+
 void PairNNAngular2::compute(int eflag, int vflag)
 {
-  feenableexcept(FE_INVALID | FE_OVERFLOW);
+  //feenableexcept(FE_INVALID | FE_OVERFLOW);
 
   double evdwl = 0.0;
   eng_vdwl = 0.0;
@@ -433,12 +505,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
       j &= NEIGHMASK;
       tagint jtag = tag[j];
 
-      double delxj = xtmp - x[j][0];
+      /*double delxj = xtmp - x[j][0];
       double delyj = ytmp - x[j][1];
-      double delzj = ztmp - x[j][2];
-      /*double delxj = delxs[jj];
-      double delyj = delys[jj];
-      double delzj = delzs[jj];*/
+      double delzj = ztmp - x[j][2];*/
+      double delxj = x[j][0] - xtmp;
+      double delyj = x[j][1] - ytmp;
+      double delzj = x[j][2] - ztmp;
 
       double rsq1 = delxj*delxj + delyj*delyj + delzj*delzj;
 
@@ -478,12 +550,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
         //if (j == k) continue;
         //if (i == k) continue;
 
-        double delxk = xtmp - x[k][0];
+        /*double delxk = xtmp - x[k][0];
         double delyk = ytmp - x[k][1];
-        double delzk = ztmp - x[k][2];
-        /*double delxk = delxs[kk];
-        double delyk = delys[kk];
-        double delzk = delzs[kk];*/
+        double delzk = ztmp - x[k][2];*/
+        double delxk = x[k][0] - xtmp;
+        double delyk = x[k][1] - ytmp;
+        double delzk = x[k][2] - ztmp;
 
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
@@ -497,9 +569,9 @@ void PairNNAngular2::compute(int eflag, int vflag)
         double delxjk = x[j][0] - x[k][0];
         double delyjk = x[j][1] - x[k][1];
         double delzjk = x[j][2] - x[k][2];
-        //double delxjk = delxj - delxk;
-        //double delyjk = delyj - delyk;
-        //double delzjk = delzj - delzk;
+        /*double delxjk = x[k][0] - x[j][0];
+        double delyjk = x[k][1] - x[j][1];
+        double delzjk = x[k][2] - x[j][2];*/
       
         double rjk = sqrt(delxjk*delxjk + delyjk*delyjk + delzjk*delzjk);
 
@@ -521,7 +593,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
         // apply 3-body symmetry
         for (int s=0; s < m_numberOfSymmFunc; s++) 
           if ( m_parameters[s].size() == 4 ) 
-            inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
+            /*inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
+                                   m_parameters[s][0], m_parameters[s][1], 
+                                   m_parameters[s][2], m_parameters[s][3]);*/
+            inputVector(0,s) += G5(rij, rik, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
                                    m_parameters[s][2], m_parameters[s][3]);
       }
@@ -554,7 +629,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
     // check
     for (auto inputValue : inputVector) {
-      if (inputValue > 4.19236576404)
+      if (inputValue > 1.38635211025)
         cout << "Large input value: " << inputValue << endl;
       else if (inputValue < 0.0)
         cout << "Negative input value: " << inputValue << endl;
@@ -563,10 +638,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
     // apply NN to get energy
     evdwl = network(inputVector);
 
-    eatom[i] += evdwl;
+    eatom[i] += evdwl;///(neighbours);
 
     // set energy manually (not use ev_tally for energy)
-    eng_vdwl += evdwl;
+    eng_vdwl += evdwl;///(neighbours);
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation();
@@ -580,7 +655,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
     double fz3j = 0;
     double fx3k = 0;
     double fy3k = 0;
-    double fz3k = 0;
+    double fz3k = 0;  
     
     // calculate forces by differentiating the symmetry functions
     // UNTRUE(?): dEdR(j) will be the force contribution from atom j on atom i
@@ -588,6 +663,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
       
       // G2: one atomic pair environment per symmetry function
       if ( m_parameters[s].size() == 3 ) {
+
 
         arma::mat dG2(1,neighbours); // derivative of G2
 
@@ -608,9 +684,9 @@ void PairNNAngular2::compute(int eflag, int vflag)
           fz2 += fpair*drij(2,l);
 
           // 
-          f[tagsj[l]][0] -= fpair*drij(0,l);
-          f[tagsj[l]][1] -= fpair*drij(1,l);
-          f[tagsj[l]][2] -= fpair*drij(2,l);
+          f[tagsj[l]][0] += fpair*drij(0,l);
+          f[tagsj[l]][1] += fpair*drij(1,l);
+          f[tagsj[l]][2] += fpair*drij(2,l);
 
           if (evflag) ev_tally_full(i, 0, 0, fpair,
                                     drij(0,l), drij(1,l), drij(2,l));
@@ -643,24 +719,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
                 m_parameters[s][2], m_parameters[s][3], 
                 dEdRj3, dEdRk3, drij.col(l), driks[l], drjks[l]);*/
 
-          /*cout << "params: " << m_parameters[s][0] << " " <<
-          m_parameters[s][1] << " " << m_parameters[s][2] << " "
-          << m_parameters[s][3] << endl;
-          cout << "l: " << l << endl;
-          cout << "drij: " << drij.col(l) << endl;
-          cout << "drik: " << driks[l] << endl;
-          cout << "drjk: " << drjks[l] << endl;
-          cout << "Rij: " << Rij(0,l) << endl;
-          cout << "Rik: " << Riks[l] << endl;
-          cout << "Rjk: " << Rjks[l] << endl;
-          cout << "cosTheta: " << cosThetas[l] << endl;
-          //cout << "dEdRj3: " << arma::sum(dEdRj3, 1) << endl;
-          cout << "dEdRj3: " << dEdRj3 << endl;
-          cout << "dEdRk3: " << dEdRk3 << endl;
-          cout << "dxij: " << dxij << endl;
-          cout << "dxik: " << dxik << endl;
-          exit(1);*/
-
           // N3L: add 3-body forces for i and k
           double fj3[3];
           double fk3[3];
@@ -668,7 +726,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
           double dGk[3];
           for (int m=0; m < numberOfTriplets; m++) {
 
-            dG4dj(drij(0,l), drij(1,l), drij(2,l), 
+            /*dG4dj(drij(0,l), drij(1,l), drij(2,l), 
               driks[l](0,m), driks[l](1,m), driks[l](2,m), 
               Rij(0,l), Riks[l](0,m), Rjks[l](0,m), 
               cosThetas[l](0,m), m_parameters[s][0], 
@@ -680,7 +738,19 @@ void PairNNAngular2::compute(int eflag, int vflag)
               Rij(0,l), Riks[l](0,m), Rjks[l](0,m), 
               cosThetas[l](0,m), m_parameters[s][0], 
               m_parameters[s][1], m_parameters[s][2], 
-              m_parameters[s][3], dGk);
+              m_parameters[s][3], dGk);*/
+
+            dG5dj(drij(0,l), drij(1,l), drij(2,l), 
+              driks[l](0,m), driks[l](1,m), driks[l](2,m), 
+              Rij(0,l), Riks[l](0,m), cosThetas[l](0,m), 
+              m_parameters[s][0], m_parameters[s][1], 
+              m_parameters[s][2], m_parameters[s][3], dGj);
+
+            dG5dk(drij(0,l), drij(1,l), drij(2,l), 
+              driks[l](0,m), driks[l](1,m), driks[l](2,m), 
+              Rij(0,l), Riks[l](0,m), cosThetas[l](0,m), 
+              m_parameters[s][0], m_parameters[s][1], 
+              m_parameters[s][2], m_parameters[s][3], dGk);
 
             // triplet force j
             /*fj3[0] = dEdG(0,s) * dEdRj3(0,m);
@@ -711,14 +781,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
             // add to atom j. Not N3L, but becuase
             // every pair (i,j) is counted twice for triplets
-            f[tagsj[l]][0] -= fj3[0];
-            f[tagsj[l]][1] -= fj3[1];
-            f[tagsj[l]][2] -= fj3[2];
+            f[tagsj[l]][0] += fj3[0];
+            f[tagsj[l]][1] += fj3[1];
+            f[tagsj[l]][2] += fj3[2];
 
-            // add to atom k because of the sum k > j
-            f[tagsk[l][m]][0] -= fk3[0];
-            f[tagsk[l][m]][1] -= fk3[1];
-            f[tagsk[l][m]][2] -= fk3[2];
+            // add to atom k 
+            f[tagsk[l][m]][0] += fk3[0];
+            f[tagsk[l][m]][1] += fk3[1];
+            f[tagsk[l][m]][2] += fk3[2];
 
             if (evflag) ev_tally3_nn(i, tagsj[l], tagsk[l][m],
                                      fj3, fk3, 
@@ -730,10 +800,16 @@ void PairNNAngular2::compute(int eflag, int vflag)
     }
 
     // update forces
-    //f[i][0] += fx3j + fx3k;
-    //f[i][1] += fy3j + fy3k;
-    //f[i][2] += fz3j + fz3k;
+    f[i][0] += fx3j + fx3k;
+    f[i][1] += fy3j + fy3k;
+    f[i][2] += fz3j + fz3k;
   }
+
+  cout << f[0][0] << " " << f[0][1] << " " << f[0][2] << endl;
+  cout << f[1][0] << " " << f[1][1] << " " << f[1][2] << endl;
+  cout << f[2][0] << " " << f[2][1] << " " << f[2][2] << endl;
+  cout << endl;
+  if (myStep == 5) exit(1);
 
   if (vflag_fdotr) virial_fdotr_compute();
 

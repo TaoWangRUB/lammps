@@ -53,6 +53,8 @@ class PairNNAngular2 : public Pair {
   double G2(double rij, double eta, double Rc, double Rs);
   double G4(double rij, double rik, double rjk, double cosTheta, 
             double eta, double Rc, double zeta, double lambda);
+  double G5(double rij, double rik, double cosTheta, 
+                            double eta, double Rc, double zeta, double lambda);
 
   arma::mat dG1dR(arma::mat Rij, double Rc);
   void dG2dR(arma::mat Rij, double eta, double Rc, double Rs, arma::mat& dG2);
@@ -71,6 +73,16 @@ class PairNNAngular2 : public Pair {
                double Rj, double Rk, double Rjk, double CosTheta,
                double eta, double Rc, double zeta, double Lambda, 
                double *dGk);
+  void dG5dj(double xj, double yj, double zj, 
+              double xk, double yk, double zk, 
+              double Rj, double Rk, double CosTheta, 
+              double eta, double Rc, double zeta, double lambda, 
+              double *dGj);
+  void dG5dk(double xj, double yj, double zj, 
+              double xk, double yk, double zk, 
+              double Rj, double Rk, double CosTheta, 
+              double eta, double Rc, double zeta, double lambda, 
+              double *dGk);
  
  protected:
   double cutoff;

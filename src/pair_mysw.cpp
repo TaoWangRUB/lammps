@@ -239,6 +239,12 @@ void PairMySW::compute(int eflag, int vflag)
     f[i][2] += fz2 + fz3j + fz3k;
   }
 
+  cout << f[0][0] << " " << f[0][1] << " " << f[0][2] << endl;
+  cout << f[1][0] << " " << f[1][1] << " " << f[1][2] << endl;
+  cout << f[2][0] << " " << f[2][1] << " " << f[2][2] << endl;
+  cout << endl;
+  if (myStep == 5) exit(1);
+
   // write out all forces
   /*std::ofstream forces;
   if (!myStep) {
@@ -378,8 +384,8 @@ void PairMySW::compute(int eflag, int vflag)
 
         // save positions of neighbour j relative to position
         // of central atom i for use in training
-        outfile << std::setprecision(17) << -delr1[0] << " " << -delr1[1] << " " 
-                << -delr1[2] << " " << rsq1 << " ";
+        outfile << std::setprecision(17) << delr1[0] << " " << delr1[1] << " " 
+                << delr1[2] << " " << rsq1 << " ";
                    
         for (kk = jj+1; kk < jnum; kk++) {
           k = jlist[kk];
