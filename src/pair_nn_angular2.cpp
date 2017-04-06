@@ -484,18 +484,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
     std::vector<arma::mat> cosThetas(jnum-1);
     std::vector<arma::mat> Rjks(jnum-1);
     std::vector<arma::mat> drjks(jnum-1);
-    std::vector<std::vector<int>> tagsk(jnum-1);
+    std::vector<std::vector<int>> tagsk(jnum+3);
 
     // input vector to NN
     arma::mat inputVector(1, m_numberOfSymmFunc, arma::fill::zeros);
 
-    // make my own input vector
-    /*double delxs[] = {1.360657349, -1.382538701, -1.356904817, 1.347116757};
-    double delys[] = {1.377881253, -1.325733246, 1.378576362, -1.334633321};
-    double delzs[] = {1.313130941, 1.293225662, -1.387754934, -1.412519148};
-    jnum = 4;*/
-
-    // keep track of how many atoms below r2 and N3L
+    // keep track of how many atoms below r2
     int neighbours = 0; 
 
     // collect all pairs
@@ -516,8 +510,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
       if (rsq1 >= cutoff*cutoff) continue;
 
-      if (j > nlocal) ghosts++;
-
       // store pair coordinates
       double rij = sqrt(rsq1);
       drij(0, neighbours) = delxj;
@@ -533,11 +525,11 @@ void PairNNAngular2::compute(int eflag, int vflag)
                                  m_parameters[s][1], m_parameters[s][2]);
 
       // collect triplets for this (i,j)
-      arma::mat Rik(1, jnum-1);
-      arma::mat drik(3, jnum-1);
-      arma::mat CosTheta(1, jnum-1);
-      arma::mat Rjk(1, jnum-1); 
-      arma::mat drjk(3, jnum-1);
+      arma::mat Rik(1, jnum);
+      arma::mat drik(3, jnum);
+      arma::mat CosTheta(1, jnum);
+      arma::mat Rjk(1, jnum); 
+      arma::mat drjk(3, jnum);
 
       // three-body
       int neighk = 0;
@@ -547,8 +539,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
         k &= NEIGHMASK;
         tagint ktag = tag[k];
 
-        //if (j == k) continue;
-        //if (i == k) continue;
+        //if (k == j) continue;
 
         /*double delxk = xtmp - x[k][0];
         double delyk = ytmp - x[k][1];
@@ -655,7 +646,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
     double fz3j = 0;
     double fx3k = 0;
     double fy3k = 0;
-    double fz3k = 0;  
+    double fz3k = 0;
     
     // calculate forces by differentiating the symmetry functions
     // UNTRUE(?): dEdR(j) will be the force contribution from atom j on atom i
@@ -678,12 +669,13 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
         // loop through all pairs for N3L
         for (int l=0; l < neighbours; l++) {
+
           double fpair = fpairs(0,l);
           fx2 += fpair*drij(0,l);
           fy2 += fpair*drij(1,l);
           fz2 += fpair*drij(2,l);
 
-          // 
+          // according to Behler
           f[tagsj[l]][0] += fpair*drij(0,l);
           f[tagsj[l]][1] += fpair*drij(1,l);
           f[tagsj[l]][2] += fpair*drij(2,l);
@@ -781,14 +773,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
             // add to atom j. Not N3L, but becuase
             // every pair (i,j) is counted twice for triplets
-            f[tagsj[l]][0] += fj3[0];
-            f[tagsj[l]][1] += fj3[1];
-            f[tagsj[l]][2] += fj3[2];
+            f[tagsj[l]][0] -= fj3[0];// + fk3[0];
+            f[tagsj[l]][1] -= fj3[1];// + fk3[1];
+            f[tagsj[l]][2] -= fj3[2];// + fk3[2];
 
             // add to atom k 
-            f[tagsk[l][m]][0] += fk3[0];
-            f[tagsk[l][m]][1] += fk3[1];
-            f[tagsk[l][m]][2] += fk3[2];
+            f[tagsk[l][m]][0] -= fk3[0]+ fj3[0];
+            f[tagsk[l][m]][1] -= fk3[1] + fj3[1];
+            f[tagsk[l][m]][2] -= fk3[2] + fj3[2];
 
             if (evflag) ev_tally3_nn(i, tagsj[l], tagsk[l][m],
                                      fj3, fk3, 
@@ -800,9 +792,13 @@ void PairNNAngular2::compute(int eflag, int vflag)
     }
 
     // update forces
-    f[i][0] += fx3j + fx3k;
+    /*f[i][0] += fx3j + fx3k;
     f[i][1] += fy3j + fy3k;
-    f[i][2] += fz3j + fz3k;
+    f[i][2] += fz3j + fz3k;*/
+
+    /*f[i][0] += fx2;
+    f[i][1] += fy2;
+    f[i][2] += fz2;*/
   }
 
   cout << f[0][0] << " " << f[0][1] << " " << f[0][2] << endl;

@@ -105,13 +105,12 @@ void PairMySW::compute(int eflag, int vflag)
   int nlocal = atom->nlocal;
   int newton_pair = force->newton_pair;
 
-  inum = list->inum; // length of list of neighbour lists
-  ilist = list->ilist; // list of i atoms for which neighbour lists exist
-  numneigh = list->numneigh; // length of each of the neighbour lists
-  firstneigh = list->firstneigh; // neighbour lists for each atom i
+  inum = list->inum;
+  ilist = list->ilist;
+  numneigh = list->numneigh;
+  firstneigh = list->firstneigh;
 
   // loop over full neighbor list of my atoms
-  int ghosts = 0;
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
@@ -121,21 +120,12 @@ void PairMySW::compute(int eflag, int vflag)
     ytmp = x[i][1];
     ztmp = x[i][2];
 
-    double fx2 = 0;
-    double fy2 = 0;
-    double fz2 = 0;
-
     // two-body interactions, skip half of them
 
-    jlist = firstneigh[i]; // neighbour list of atom i
-    jnum = numneigh[i];    // number of neighbours for atom i
+    jlist = firstneigh[i];
+    jnum = numneigh[i];
 
     for (jj = 0; jj < jnum; jj++) {
-    
-      // j is local (for this processor) indicies of neighbours
-      // of atom i. When j > ilocal, this is a ghost atom
-      // for serial, ghost atoms are atoms because of 
-      // periodic boundary conditions
       j = jlist[jj];
       j &= NEIGHMASK;
       jtag = tag[j];
@@ -155,19 +145,16 @@ void PairMySW::compute(int eflag, int vflag)
       delx = xtmp - x[j][0];
       dely = ytmp - x[j][1];
       delz = ztmp - x[j][2];
-
       rsq = delx*delx + dely*dely + delz*delz;
 
       ijparam = elem2param[itype][jtype][jtype];
-  
       if (rsq >= params[ijparam].cutsq) continue;
 
       twobody(&params[ijparam],rsq,fpair,eflag,evdwl);
 
-      fx2 += delx*fpair;
-      fy2 += dely*fpair;
-      fz2 += delz*fpair;
-
+      f[i][0] += delx*fpair;
+      f[i][1] += dely*fpair;
+      f[i][2] += delz*fpair;
       f[j][0] -= delx*fpair;
       f[j][1] -= dely*fpair;
       f[j][2] -= delz*fpair;
@@ -178,26 +165,16 @@ void PairMySW::compute(int eflag, int vflag)
 
     jnumm1 = jnum - 1;
 
-    double fx3j = 0;
-    double fy3j = 0;
-    double fz3j = 0;
-    double fx3k = 0;
-    double fy3k = 0;
-    double fz3k = 0;
-
     for (jj = 0; jj < jnumm1; jj++) {
       j = jlist[jj];
       j &= NEIGHMASK;
       jtype = map[type[j]];
       ijparam = elem2param[itype][jtype][jtype];
-
       delr1[0] = x[j][0] - xtmp;
       delr1[1] = x[j][1] - ytmp;
       delr1[2] = x[j][2] - ztmp;
-
       rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
       if (rsq1 >= params[ijparam].cutsq) continue;
-      if (j > nlocal) ghosts++;
 
       for (kk = jj+1; kk < jnum; kk++) {
         k = jlist[kk];
@@ -209,19 +186,15 @@ void PairMySW::compute(int eflag, int vflag)
         delr2[0] = x[k][0] - xtmp;
         delr2[1] = x[k][1] - ytmp;
         delr2[2] = x[k][2] - ztmp;
-
         rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
         if (rsq2 >= params[ikparam].cutsq) continue;
 
         threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                   rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
 
-        fx3j -= fj[0];
-        fy3j -= fj[1];
-        fz3j -= fj[2];
-        fx3k -= fk[0];
-        fy3k -= fk[1];
-        fz3k -= fk[2];
+        f[i][0] -= fj[0] + fk[0];
+        f[i][1] -= fj[1] + fk[1];
+        f[i][2] -= fj[2] + fk[2];
         f[j][0] += fj[0];
         f[j][1] += fj[1];
         f[j][2] += fj[2];
@@ -232,12 +205,9 @@ void PairMySW::compute(int eflag, int vflag)
         if (evflag) ev_tally3(i,j,k,evdwl,0.0,fj,fk,delr1,delr2);
       }
     }
-
-    // update forces
-    f[i][0] += fx2 + fx3j + fx3k;
-    f[i][1] += fy2 + fy3j + fy3k;
-    f[i][2] += fz2 + fz3j + fz3k;
   }
+
+  if (vflag_fdotr) virial_fdotr_compute();
 
   cout << f[0][0] << " " << f[0][1] << " " << f[0][2] << endl;
   cout << f[1][0] << " " << f[1][1] << " " << f[1][2] << endl;
@@ -260,21 +230,7 @@ void PairMySW::compute(int eflag, int vflag)
   }
   forces.close();*/
 
-  //cout << "Ghosts: " << ghosts << endl;
-
-  /*double totalForceX = 0;
-  double totalForceY = 0;
-  double totalForceZ = 0;
-  for (ii = 0; ii < inum; ii++) {
-    i = ilist[ii];
-    totalForceX += f[i][0];
-    totalForceY += f[i][1];
-    totalForceZ += f[i][2];
-  }
-
-  cout << totalForceX << " " << totalForceY << " " << totalForceZ << endl;*/
-
-  if (vflag_fdotr) virial_fdotr_compute();
+  
 
   // EDITING: output neighbour lists and energies
   // after all computations are made
@@ -336,16 +292,16 @@ void PairMySW::compute(int eflag, int vflag)
     double fz3 = 0;
 
     // sample several atoms
-    /*int nAtoms;
+    int nAtoms;
     if (myStep < 50) nAtoms = 100;
     else nAtoms = 10;
     nAtoms = 10;      
     arma::ivec atoms = arma::randi<arma::ivec>
-                       (nAtoms, arma::distr_param(0, inum));*/
+                       (nAtoms, arma::distr_param(0, inum));
 
     //for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
-    //for (auto ii : atoms) {
-    for (ii = 0; ii < inum; ii++) {
+    for (auto ii : atoms) {
+    //for (ii = 0; ii < inum; ii++) {
   	  i = ilist[ii];
   	  double xi = x[i][0];
   	  double yi = x[i][1];
@@ -376,20 +332,17 @@ void PairMySW::compute(int eflag, int vflag)
   	    if (rsq1 >= params[ijparam].cutsq) continue;
 
         twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
-        energy += evdwl;
-
-        fx2 -= delx*fpair;
-        fy2 -= dely*fpair;
-        fz2 -= delz*fpair;
+        energy += evdwl/2;
 
         // save positions of neighbour j relative to position
         // of central atom i for use in training
         outfile << std::setprecision(17) << delr1[0] << " " << delr1[1] << " " 
                 << delr1[2] << " " << rsq1 << " ";
                    
-        for (kk = jj+1; kk < jnum; kk++) {
+        for (kk = 0; kk < jnum; kk++) {
           k = jlist[kk];
           k &= NEIGHMASK;
+          if (k == j) continue;
           ktype = map[type[k]];
           ikparam = elem2param[itype][ktype][ktype];
           ijkparam = elem2param[itype][jtype][ktype];
@@ -403,10 +356,6 @@ void PairMySW::compute(int eflag, int vflag)
           threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                     rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
           energy += evdwl;
-
-          fx3 -= fj[0] + fk[0];
-          fy3 -= fj[1] + fk[1];
-          fz3 -= fj[2] + fk[2];
         }
 
   	  }
