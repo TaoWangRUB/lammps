@@ -230,12 +230,8 @@ void PairMyVashishta::compute(int eflag, int vflag)
     f[i][0] += fxtmp;
     f[i][1] += fytmp;
     f[i][2] += fztmp;
-
-    if (i == 0)
-    cout << i << " " << f[i][0] << " " << f[i][1] << " " << 
-    f[i][2] << endl;
   }
-  cout << "after: " << f[0][0] << " " << f[0][1] << " " << f[0][2] << endl;
+    
 
 
   if (vflag_fdotr) virial_fdotr_compute();
@@ -244,12 +240,12 @@ void PairMyVashishta::compute(int eflag, int vflag)
 
   // write neighbour lists every 100 steps
   //if ( !(myStep % 10) ) {
-  if ( myStep == 10000) {
+  if ( myStep == 0) {
 
-    std::ofstream outfiles[2];
+    int files[2];
 
-    // sampling just a few configs for each time step
-    // because the system is quite homogeneous
+    // calculate energies manually, not eatom[i]
+    double energy = 0;
 
     // decide number of samples for each time step
     int chosenAtoms[] = {307, 309};
@@ -257,13 +253,15 @@ void PairMyVashishta::compute(int eflag, int vflag)
       i = ilist[ii];
       itype = map[type[i]];
 
-      if (itype == 0) {
+      if (!itype) {
         outfiles[0].open(filename1Pairs.c_str(), std::ios::app);
         outfiles[1].open(filename1Triplets.c_str(), std::ios::app);
+        files[0] = 0; files[1] = 1;
       }
-      else {
-        outfiles[0].open(filename2Pairs.c_str(), std::ios::app);
-        outfiles[1].open(filename2Triplets.c_str(), std::ios::app);
+      else { 
+        outfiles[2].open(filename2Pairs.c_str(), std::ios::app);
+        outfiles[3].open(filename2Triplets.c_str(), std::ios::app);
+        files[0] = 2; files[1] = 3;
       }
 
       double xi = x[i][0];
@@ -286,33 +284,38 @@ void PairMyVashishta::compute(int eflag, int vflag)
         jtag = tag[j];
         jtype = map[type[j]];
 
-        double xij = xi - x[j][0];
-        double yij = yi - x[j][1];
-        double zij = zi - x[j][2];
+        delx = xi - x[j][0];
+        dely = yi - x[j][1];
+        delz = zi - x[j][2];
 
-        double rij2 = xij*xij + yij*yij + zij*zij;
+        rsq1 = delx*delx + dely*dely + delz*delz;
         
-        ijparam = elem2param[itype][jtype][jtype];
+        /*ijparam = elem2param[itype][jtype][jtype];
         std::cout << "itype: " << itype << "jtype: " << jtype << std::endl;
         std::cout << "pair: " << params[ijparam].cutsq << std::endl;
         std::cout << "trip: " << params[ijparam].cutsq2 << std::endl;
-        std::cout << std::endl;  
+        std::cout << std::endl;*/  
   
         // pair cut
-        if (rij2 >= params[ijparam].cutsq) continue;
+        if (rsq >= params[ijparam].cutsq) continue;
+
+        twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
+        energy += evdwl/2;
 
         // write to pair file
-        outfiles[0] << std::setprecision(10) << xij << " " << yij << " " <<
-        zij << " " << rij2 << " ";
+        outfiles[files[0]] << std::setprecision(17) << delx << " " 
+        << dely << " " <<
+        delz << " " << rsq1 << " " << jtype << " ";
 
         // triplet cut
-        if (rij2 >= params[ijparam].cutsq2) continue;
+        if (rsq >= params[ijparam].cutsq2) continue;
 
-        outfiles[1] << std::setprecision(10) << xij << " " << yij << " " <<
-        zij << " " << rij2 << " ";
+        outfiles[files[1]] << std::setprecision(17) << delx << " " 
+        << dely << " " <<
+        delz << " " << rsq1 << " " << jtype << " ";
 
         for (kk = jj+1; kk < jnum; kk++) {
-          k = neighshort[kk];
+          k = jlist[kk];
           ktype = map[type[k]];
           ikparam = elem2param[itype][ktype][ktype];
           ijkparam = elem2param[itype][jtype][ktype];
@@ -322,15 +325,18 @@ void PairMyVashishta::compute(int eflag, int vflag)
           delr2[2] = x[k][2] - ztmp;
           rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
           if (rsq2 >= params[ikparam].cutsq2) continue;
+
+          threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
+                    rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
+          energy += evdwl/3;
         }
       }
 
       // store energy
-      outfiles[0] << std::setprecision(10) << eatom[i] << std::endl;
-      outfiles[1] << std::setprecision(10) << eatom[i] << std::endl;  
+      outfiles[files[0]] << std::setprecision(17) << energy << std::endl;
     }
-    outfiles[0].close();
-    outfiles[1].close();
+    outfiles[files[0]].close();
+    outfiles[files[1]].close();
   }
   myStep++;
   exit(1);
@@ -362,7 +368,7 @@ void PairMyVashishta::makeDirectory()
   std::cout << "DIRNAME : " << dirName << std::endl;
 
   // copy input script and potential file to folder for reference
-  command = "cp SiO2.vashishta.in " + dirName;
+  command = "cp vashishta.SiO2.in " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not copy input script" << std::endl;
   command = "cp ../../lammps/src/pair_myvashishta.cpp " + dirName;
@@ -370,25 +376,25 @@ void PairMyVashishta::makeDirectory()
     std::cout << "Could not copy lammps script" << std::endl;
 
   // trying to open files, check if file successfully opened
-  outfile1Pairs.open(filename1Pairs.c_str());
-  if ( !outfile1Pairs.is_open() ) 
+  outfiles[0].open(filename1Pairs.c_str());
+  if ( !outfiles[0].is_open() ) 
     std::cout << "File is not opened" << std::endl;
-  outfile1Pairs.close();
+  outfiles[0].close();
 
-  outfile2Pairs.open(filename2Pairs.c_str());
-  if ( !outfile2Pairs.is_open() ) 
+  outfiles[1].open(filename1Triplets.c_str());
+  if ( !outfiles[1].is_open() ) 
     std::cout << "File is not opened" << std::endl;
-  outfile2Pairs.close();
+  outfiles[1].close();
 
-  outfile1Triplets.open(filename1Triplets.c_str());
-  if ( !outfile1Triplets.is_open() ) 
+  outfiles[2].open(filename2Pairs.c_str());
+  if ( !outfiles[2].is_open() ) 
     std::cout << "File is not opened" << std::endl;
-  outfile1Triplets.close();
+  outfiles[2].close();
 
-  outfile2Triplets.open(filename2Triplets.c_str());
-  if ( !outfile2Triplets.is_open() ) 
+  outfiles[3].open(filename2Triplets.c_str());
+  if ( !outfiles[3].is_open() ) 
     std::cout << "File is not opened" << std::endl;
-  outfile2Triplets.close();
+  outfiles[3].close();
 }
 
 /* ---------------------------------------------------------------------- */

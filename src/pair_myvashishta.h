@@ -70,10 +70,7 @@ class PairMyVashishta : public Pair {
 
   std::string dirName;     // date
 
-  std::ofstream outfile1Pairs;
-  std::ofstream outfile2Pairs;
-  std::ofstream outfile1Triplets;
-  std::ofstream outfile2Triplets;
+  std::ofstream outfiles[4];
 
   int myStep = 0;
   int randomAtom;

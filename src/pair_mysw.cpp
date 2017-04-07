@@ -273,17 +273,23 @@ void PairMySW::compute(int eflag, int vflag)
 
   // write neighbour lists every 100 steps
   //bool write = 1;
-  if ( !(myStep % 10) ) {
+  if ( !(myStep % 1) ) {
   //if (write) {
     //std::cout << "Writing to file..." << std::endl;
     
     outfile.open(filename.c_str(), std::ios::app);
 
-    // sampling just a few configs for each time step
-    // because the system is quite homogeneous
-
     // sample ONE atom
-    int chosenAtom = 899;//inum/2;
+    //int chosenAtom = 899;//inum/2;
+
+    // sample several atoms
+    /*int nAtoms;
+    if (myStep < 50) nAtoms = 100;
+    else nAtoms = 10;
+    nAtoms = 10;      
+    arma::ivec atoms = arma::randi<arma::ivec>
+                       (nAtoms, arma::distr_param(0, inum));*/
+
     double fx2 = 0;
     double fy2 = 0;
     double fz2 = 0;
@@ -291,17 +297,9 @@ void PairMySW::compute(int eflag, int vflag)
     double fy3 = 0;
     double fz3 = 0;
 
-    // sample several atoms
-    int nAtoms;
-    if (myStep < 50) nAtoms = 100;
-    else nAtoms = 10;
-    nAtoms = 10;      
-    arma::ivec atoms = arma::randi<arma::ivec>
-                       (nAtoms, arma::distr_param(0, inum));
-
     //for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
-    for (auto ii : atoms) {
-    //for (ii = 0; ii < inum; ii++) {
+    //for (auto ii : atoms) {
+    for (ii = 0; ii < inum; ii++) {
   	  i = ilist[ii];
   	  double xi = x[i][0];
   	  double yi = x[i][1];
@@ -357,13 +355,14 @@ void PairMySW::compute(int eflag, int vflag)
                     rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
           energy += evdwl;
         }
-
   	  }
+      cout << energy << endl;
       // store energy and force
   		outfile << std::setprecision(17) << energy << endl;
       //<< " " << fx2 << " " <<
       //fy2 << " " << fz2 <<  " " << fx3 << " " << fy3 << " " << fz3 << std::endl;
   	}
+    cout << endl;
     outfile.close();
   }
   myStep++;
