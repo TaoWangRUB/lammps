@@ -629,10 +629,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
     // apply NN to get energy
     evdwl = network(inputVector);
 
-    eatom[i] += evdwl;///(neighbours);
+    eatom[i] += evdwl/2;///(neighbours);
 
     // set energy manually (not use ev_tally for energy)
-    eng_vdwl += evdwl;///(neighbours);
+    eng_vdwl += evdwl/2;///(neighbours);
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation();
@@ -663,6 +663,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
         // and returning from function --> speed-up
         dG2dR(Rij, m_parameters[s][0],
               m_parameters[s][1], m_parameters[s][2], dG2);
+
+        cout << dG2 << endl;
 
         // chain rule. all pair foces
         arma::mat fpairs = -dEdG(0,s) * dG2 / Rij;
@@ -778,7 +780,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
             f[tagsj[l]][2] -= fj3[2];// + fk3[2];
 
             // add to atom k 
-            f[tagsk[l][m]][0] -= fk3[0]+ fj3[0];
+            f[tagsk[l][m]][0] -= fk3[0] + fj3[0];
             f[tagsk[l][m]][1] -= fk3[1] + fj3[1];
             f[tagsk[l][m]][2] -= fk3[2] + fj3[2];
 
@@ -790,6 +792,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
         }
       }
     }
+    exit(1);
 
     // update forces
     /*f[i][0] += fx3j + fx3k;

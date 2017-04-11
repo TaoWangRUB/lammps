@@ -280,7 +280,7 @@ void PairMySW::compute(int eflag, int vflag)
     outfile.open(filename.c_str(), std::ios::app);
 
     // sample ONE atom
-    //int chosenAtom = 899;//inum/2;
+    int chosenAtom = 0;//inum/2;
 
     // sample several atoms
     /*int nAtoms;
@@ -297,9 +297,9 @@ void PairMySW::compute(int eflag, int vflag)
     double fy3 = 0;
     double fz3 = 0;
 
-    //for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
+    for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
     //for (auto ii : atoms) {
-    for (ii = 0; ii < inum; ii++) {
+    //for (ii = 0; ii < inum; ii++) {
   	  i = ilist[ii];
   	  double xi = x[i][0];
   	  double yi = x[i][1];
@@ -330,14 +330,14 @@ void PairMySW::compute(int eflag, int vflag)
   	    if (rsq1 >= params[ijparam].cutsq) continue;
 
         twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
-        energy += evdwl/2;
+        energy += evdwl;
 
         // save positions of neighbour j relative to position
         // of central atom i for use in training
         outfile << std::setprecision(17) << delr1[0] << " " << delr1[1] << " " 
                 << delr1[2] << " " << rsq1 << " ";
                    
-        for (kk = 0; kk < jnum; kk++) {
+        for (kk = jj+1; kk < jnum; kk++) {
           k = jlist[kk];
           k &= NEIGHMASK;
           if (k == j) continue;
@@ -356,11 +356,9 @@ void PairMySW::compute(int eflag, int vflag)
           energy += evdwl;
         }
   	  }
-      cout << energy << endl;
       // store energy and force
-  		outfile << std::setprecision(17) << energy << endl;
-      //<< " " << fx2 << " " <<
-      //fy2 << " " << fz2 <<  " " << fx3 << " " << fy3 << " " << fz3 << std::endl;
+  		outfile << std::setprecision(17) << energy << " " <<
+      f[i][0] << " " << f[i][1] << " " << f[i][2] << endl;
   	}
     cout << endl;
     outfile.close();
@@ -403,7 +401,7 @@ void PairMySW::makeDirectory()
   std::cout << "FILENAME: " << filename << std::endl;
 
   // copy input script and potential file to folder for reference
-  command = "cp bulkSi.in " + dirName;
+  command = "cp singleSwSi.in " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not copy input script" << std::endl;
   command = "cp ../../lammps/src/pair_mysw.cpp " + dirName;
