@@ -664,8 +664,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
         dG2dR(Rij, m_parameters[s][0],
               m_parameters[s][1], m_parameters[s][2], dG2);
 
-        cout << dG2 << endl;
-
         // chain rule. all pair foces
         arma::mat fpairs = -dEdG(0,s) * dG2 / Rij;
 
@@ -775,14 +773,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
             // add to atom j. Not N3L, but becuase
             // every pair (i,j) is counted twice for triplets
-            f[tagsj[l]][0] -= fj3[0];// + fk3[0];
-            f[tagsj[l]][1] -= fj3[1];// + fk3[1];
-            f[tagsj[l]][2] -= fj3[2];// + fk3[2];
+            f[tagsj[l]][0] += fj3[0];// + fk3[0];
+            f[tagsj[l]][1] += fj3[1];// + fk3[1];
+            f[tagsj[l]][2] += fj3[2];// + fk3[2];
 
             // add to atom k 
-            f[tagsk[l][m]][0] -= fk3[0] + fj3[0];
-            f[tagsk[l][m]][1] -= fk3[1] + fj3[1];
-            f[tagsk[l][m]][2] -= fk3[2] + fj3[2];
+            f[tagsk[l][m]][0] += fk3[0];// + fj3[0];
+            f[tagsk[l][m]][1] += fk3[1];// + fj3[1];
+            f[tagsk[l][m]][2] += fk3[2];// + fj3[2];
 
             if (evflag) ev_tally3_nn(i, tagsj[l], tagsk[l][m],
                                      fj3, fk3, 
@@ -792,16 +790,15 @@ void PairNNAngular2::compute(int eflag, int vflag)
         }
       }
     }
-    exit(1);
 
     // update forces
     /*f[i][0] += fx3j + fx3k;
     f[i][1] += fy3j + fy3k;
     f[i][2] += fz3j + fz3k;*/
 
-    /*f[i][0] += fx2;
-    f[i][1] += fy2;
-    f[i][2] += fz2;*/
+    /*f[i][0] -= fx2;
+    f[i][1] -= fy2;
+    f[i][2] -= fz2;*/
   }
 
   cout << f[0][0] << " " << f[0][1] << " " << f[0][2] << endl;
@@ -811,8 +808,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
   if (myStep == 5) exit(1);
 
   if (vflag_fdotr) virial_fdotr_compute();
-
-  //cout << "Ghosts: " << ghosts << endl;
 
   // write out all forces
   /*std::ofstream forces;
