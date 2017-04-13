@@ -359,7 +359,7 @@ void PairMySW::compute(int eflag, int vflag)
 
           threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                     rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
-          energy += evdwl*1.5;
+          energy += evdwl*1.25;
         }
   	  }
       // store energy and force
