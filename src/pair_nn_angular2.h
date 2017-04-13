@@ -105,6 +105,8 @@ class PairNNAngular2 : public Pair {
   std::ofstream pairForces;
   std::ofstream tripletForces;
 
+  arma::mat configs;
+
   void allocate();
   void read_file(char *);
 };

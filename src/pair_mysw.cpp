@@ -35,6 +35,7 @@
 #include <time.h>       // time_t, struct tm, time, localtime, strftime
 #include <iomanip>
 #include <armadillo>  
+#include <utility> // get, pair
 
 
 using namespace LAMMPS_NS;
@@ -189,7 +190,7 @@ void PairMySW::compute(int eflag, int vflag)
         rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
         if (rsq2 >= params[ikparam].cutsq) continue;
 
-        /*threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
+        threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                   rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
 
         f[i][0] -= fj[0] + fk[0];
@@ -202,7 +203,7 @@ void PairMySW::compute(int eflag, int vflag)
         f[k][1] += fk[1];
         f[k][2] += fk[2];
 
-        if (evflag) ev_tally3(i,j,k,evdwl,0.0,fj,fk,delr1,delr2);*/
+        if (evflag) ev_tally3(i,j,k,evdwl,0.0,fj,fk,delr1,delr2);
       }
     }
   }
@@ -294,9 +295,6 @@ void PairMySW::compute(int eflag, int vflag)
     double fy3 = 0;
     double fz3 = 0;
 
-    // keep track of atoms.............
-    double delrs[6];
-
     //for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
     //for (auto ii : atoms) {
     for (ii = 0; ii < inum; ii++) {
@@ -305,7 +303,8 @@ void PairMySW::compute(int eflag, int vflag)
   	  double yi = x[i][1];
   	  double zi = x[i][2];
 
-      cout << "i: " << i << endl;
+      std::vector<std::pair<std::string, int>> indicies;
+      indicies.push_back({"i", i});
 
       /*if (myStep == 0)
         std::cout << "Chosen atom: " << i << " " << xi << " " << yi << " " 
@@ -313,23 +312,13 @@ void PairMySW::compute(int eflag, int vflag)
 
       double energy = 0;
 
-      if (i == 0)
-        int js[] = {1, 2};
-      else if (i == 1) 
-        int js[] = {0, 2};
-      else
-        int js[] = {0, 1};
-
   	  jlist = firstneigh[i];
   	  jnum = numneigh[i];
-      for (auto j : js)
   	  for (jj = 0; jj < jnum; jj++) {
-  	    /*j = jlist[jj];
-  	    j &= NEIGHMASK;*/
+  	    j = jlist[jj];
+  	    j &= NEIGHMASK;
   	    jtag = tag[j];
   	    jtype = map[type[j]];
-
-        cout << "j: " << j << endl;
 
   	    delr1[0] = x[j][0] - xi;
   	    delr1[1] = x[j][1] - yi;
@@ -341,17 +330,16 @@ void PairMySW::compute(int eflag, int vflag)
 
   	    if (rsq1 >= params[ijparam].cutsq) continue;
 
+        indicies.push_back({"j", j});
+
         twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
         energy += evdwl;
 
         // save positions of neighbour j relative to position
         // of central atom i for use in training
-        if (i == 0)
-          outfile << std::setprecision(17) << delr1[0] << " " << delr1[1] << " " 
-                << delr1[2] << " " << rsq1 << " ";
-        }
 
-        
+        outfile << std::setprecision(17) << delr1[0] << " " << delr1[1] << " " 
+                << delr1[2] << " " << rsq1 << " ";
                    
         for (kk = jj+1; kk < jnum; kk++) {
           k = jlist[kk];
@@ -359,24 +347,32 @@ void PairMySW::compute(int eflag, int vflag)
           ktype = map[type[k]];
           ikparam = elem2param[itype][ktype][ktype];
           ijkparam = elem2param[itype][jtype][ktype];
-          cout << "k: " << k << endl;
 
           delr2[0] = x[k][0] - xi;
           delr2[1] = x[k][1] - yi;
           delr2[2] = x[k][2] - zi;
           rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
+
           if (rsq2 >= params[ikparam].cutsq) continue;
 
-          //threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
-          //          rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
-          //energy += evdwl;
+          indicies.push_back({"k", k});
+
+          threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
+                    rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
+          energy += evdwl*1.5;
         }
   	  }
       // store energy and force
   		outfile << std::setprecision(17) << energy << " " <<
       f[i][0] << " " << f[i][1] << " " << f[i][2] << endl;
+
+      /*if (indicies.size() != 10) {
+        cout << myStep << " ";
+        for (auto l : indicies)
+          cout << std::get<0>(l) << " " << std::get<1>(l) << " ";
+        cout << endl;
+      }*/
   	}
-    cout << endl;
     outfile.close();
   }
   myStep++;
@@ -416,13 +412,16 @@ void PairMySW::makeDirectory()
   std::cout << "DIRNAME : " << dirName << std::endl;
   std::cout << "FILENAME: " << filename << std::endl;
 
-  // copy input script and potential file to folder for reference
+  // copy input script potential file and log to folder for reference
   command = "cp singleSwSi.in " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not copy input script" << std::endl;
   command = "cp ../../lammps/src/pair_mysw.cpp " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not copy lammps script" << std::endl;
+  command = "cp log.lammps " + dirName;
+  if ( system(command.c_str()) )
+    std::cout << "Could not copy log file" << std::endl;
 
   // trying to open file, check if file successfully opened
   outfile.open(filename.c_str());

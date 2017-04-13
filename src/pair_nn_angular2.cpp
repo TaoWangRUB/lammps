@@ -499,9 +499,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
       j &= NEIGHMASK;
       tagint jtag = tag[j];
 
-      /*double delxj = xtmp - x[j][0];
-      double delyj = ytmp - x[j][1];
-      double delzj = ztmp - x[j][2];*/
       double delxj = x[j][0] - xtmp;
       double delyj = x[j][1] - ytmp;
       double delzj = x[j][2] - ztmp;
@@ -582,7 +579,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
         neighk++;
 
         // apply 3-body symmetry
-        for (int s=0; s < m_numberOfSymmFunc; s++) 
+        for (int s=0; s < m_numberOfSymmFunc; s++)
           if ( m_parameters[s].size() == 4 ) 
             /*inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
@@ -629,10 +626,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
     // apply NN to get energy
     evdwl = network(inputVector);
 
-    eatom[i] += evdwl/2;///(neighbours);
+    eatom[i] += evdwl;///(neighbours);
 
     // set energy manually (not use ev_tally for energy)
-    eng_vdwl += evdwl/2;///(neighbours);
+    eng_vdwl += evdwl;///(neighbours);
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation();
@@ -654,7 +651,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
       
       // G2: one atomic pair environment per symmetry function
       if ( m_parameters[s].size() == 3 ) {
-
 
         arma::mat dG2(1,neighbours); // derivative of G2
 
@@ -773,14 +769,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
             // add to atom j. Not N3L, but becuase
             // every pair (i,j) is counted twice for triplets
-            f[tagsj[l]][0] += fj3[0];// + fk3[0];
-            f[tagsj[l]][1] += fj3[1];// + fk3[1];
-            f[tagsj[l]][2] += fj3[2];// + fk3[2];
+            f[tagsj[l]][0] += fj3[0];
+            f[tagsj[l]][1] += fj3[1];
+            f[tagsj[l]][2] += fj3[2];
 
             // add to atom k 
-            f[tagsk[l][m]][0] += fk3[0];// + fj3[0];
-            f[tagsk[l][m]][1] += fk3[1];// + fj3[1];
-            f[tagsk[l][m]][2] += fk3[2];// + fj3[2];
+            f[tagsk[l][m]][0] += fk3[0];
+            f[tagsk[l][m]][1] += fk3[1];
+            f[tagsk[l][m]][2] += fk3[2];
 
             if (evflag) ev_tally3_nn(i, tagsj[l], tagsk[l][m],
                                      fj3, fk3, 
@@ -792,18 +788,21 @@ void PairNNAngular2::compute(int eflag, int vflag)
     }
 
     // update forces
-    /*f[i][0] += fx3j + fx3k;
-    f[i][1] += fy3j + fy3k;
-    f[i][2] += fz3j + fz3k;*/
+    f[i][0] -= fx3j + fx3k;
+    f[i][1] -= fy3j + fy3k;
+    f[i][2] -= fz3j + fz3k;
 
-    /*f[i][0] -= fx2;
-    f[i][1] -= fy2;
-    f[i][2] -= fz2;*/
+    /*f[i][0] += fx2;
+    f[i][1] += fy2;
+    f[i][2] += fz2;*/
   }
 
-  cout << f[0][0] << " " << f[0][1] << " " << f[0][2] << endl;
-  cout << f[1][0] << " " << f[1][1] << " " << f[1][2] << endl;
-  cout << f[2][0] << " " << f[2][1] << " " << f[2][2] << endl;
+  cout << std::setprecision(14) << f[0][0] << " " << f[0][1] << " " << 
+  f[0][2] << endl;
+  cout << std::setprecision(14) << f[1][0] << " " << f[1][1] << " " << 
+  f[1][2] << endl;
+  cout << std::setprecision(14) << f[2][0] << " " << f[2][1] << " " << 
+  f[2][2] << endl;
   cout << endl;
   if (myStep == 5) exit(1);
 
@@ -1074,4 +1073,26 @@ void PairNNAngular2::read_file(char *file)
   }
   inputParameters.close();
   std::cout << "File read......" << std::endl;
+
+  // read config file
+  std::ifstream inputConfigs;
+  inputConfigs.open("../Silicon/Data/12.04-20.47.37/neighbours.txt");
+
+  if ( !inputConfigs.is_open() ) cout << "Config file not opened" << endl;
+
+  // skip blank line
+  //std::getline(inputParameters, dummyLine);
+
+  arma::mat configs(3003,6);
+  i = 0;
+  double dummy;
+  std::string line;
+  while ( i < arma::size(configs)(0) && 
+          inputConfigs >> configs(i,0) >> configs(i,1) >> configs(i,2) 
+          >> dummy >> configs(i,3) >> configs(i,4) >> configs(i,5) ) {
+    std::getline(inputConfigs, line);
+    i++;
+  }
+
+  cout << "Config file read" << endl;
 }
