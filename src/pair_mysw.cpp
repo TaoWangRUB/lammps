@@ -281,7 +281,7 @@ void PairMySW::compute(int eflag, int vflag)
     outfile.open(filename.c_str(), std::ios::app);
 
     // sample ONE atom
-    int chosenAtom = 0;//inum/2;
+    int chosenAtom = 4;//inum/2;
 
     // sample several atoms
     //int nAtoms = 3;      
@@ -330,7 +330,7 @@ void PairMySW::compute(int eflag, int vflag)
 
   	    if (rsq1 >= params[ijparam].cutsq) continue;
 
-        indicies.push_back({"j", j});
+        indicies.push_back({"j", jtag});
 
         twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
         energy += evdwl;
@@ -338,13 +338,19 @@ void PairMySW::compute(int eflag, int vflag)
         // save positions of neighbour j relative to position
         // of central atom i for use in training
 
-        outfile << std::setprecision(17) << delr1[0] << " " << delr1[1] << " " 
-                << delr1[2] << " " << rsq1 << " ";
+        // with tag
+        outfile << std::setprecision(17) << jtag << " " << delr1[0] << " " << 
+                   delr1[1] << " " << delr1[2] << " " << rsq1 << " ";
+
+        // without tag
+        /*outfile << std::setprecision(17) << delr1[0] << " " << 
+                   delr1[1] << " " << delr1[2] << " " << rsq1 << " ";*/
                    
         for (kk = jj+1; kk < jnum; kk++) {
           k = jlist[kk];
           k &= NEIGHMASK;
           ktype = map[type[k]];
+          jtag = tag[k];
           ikparam = elem2param[itype][ktype][ktype];
           ijkparam = elem2param[itype][jtype][ktype];
 
@@ -355,13 +361,14 @@ void PairMySW::compute(int eflag, int vflag)
 
           if (rsq2 >= params[ikparam].cutsq) continue;
 
-          indicies.push_back({"k", k});
+          indicies.push_back({"k", jtag});
 
           threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                     rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
-          energy += evdwl*1.25;
+          energy += evdwl;
         }
   	  }
+
       // store energy and force
   		outfile << std::setprecision(17) << energy << " " <<
       f[i][0] << " " << f[i][1] << " " << f[i][2] << endl;
@@ -419,9 +426,6 @@ void PairMySW::makeDirectory()
   command = "cp ../../lammps/src/pair_mysw.cpp " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not copy lammps script" << std::endl;
-  command = "cp log.lammps " + dirName;
-  if ( system(command.c_str()) )
-    std::cout << "Could not copy log file" << std::endl;
 
   // trying to open file, check if file successfully opened
   outfile.open(filename.c_str());

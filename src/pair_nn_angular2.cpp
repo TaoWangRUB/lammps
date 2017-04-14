@@ -667,9 +667,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
         for (int l=0; l < neighbours; l++) {
 
           double fpair = fpairs(0,l);
-          fx2 += fpair*drij(0,l);
-          fy2 += fpair*drij(1,l);
-          fz2 += fpair*drij(2,l);
+  
+          fx2 -= fpair*drij(0,l);
+          fy2 -= fpair*drij(1,l);
+          fz2 -= fpair*drij(2,l);
 
           // according to Behler
           f[tagsj[l]][0] += fpair*drij(0,l);
@@ -759,13 +760,13 @@ void PairNNAngular2::compute(int eflag, int vflag)
             fk3[1] = -dEdG(0,s) * dGk[1];
             fk3[2] = -dEdG(0,s) * dGk[2];
 
-            // add both j and k to atom i
-            fx3j += fj3[0];
-            fy3j += fj3[1];
-            fz3j += fj3[2];
-            fx3k += fk3[0];
-            fy3k += fk3[1];
-            fz3k += fk3[2];
+            // add both j and k to atom i  
+            fx3j -= fj3[0];
+            fy3j -= fj3[1];
+            fz3j -= fj3[2];
+            fx3k -= fk3[0];
+            fy3k -= fk3[1];
+            fz3k -= fk3[2];
 
             // add to atom j. Not N3L, but becuase
             // every pair (i,j) is counted twice for triplets
@@ -788,9 +789,9 @@ void PairNNAngular2::compute(int eflag, int vflag)
     }
 
     // update forces
-    f[i][0] -= fx3j + fx3k;
+    /*f[i][0] -= fx3j + fx3k;
     f[i][1] -= fy3j + fy3k;
-    f[i][2] -= fz3j + fz3k;
+    f[i][2] -= fz3j + fz3k;*/
 
     /*f[i][0] += fx2;
     f[i][1] += fy2;
