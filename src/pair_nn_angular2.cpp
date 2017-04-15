@@ -462,6 +462,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
     int i = ilist[ii];
     tagint itag = tag[i];
 
+    cout << "i: " << i << endl;
+
     double xtmp = x[i][0];
     double ytmp = x[i][1];
     double ztmp = x[i][2];
@@ -499,6 +501,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
       j &= NEIGHMASK;
       tagint jtag = tag[j];
 
+      cout << "j: " << j << endl;
+
       double delxj = x[j][0] - xtmp;
       double delyj = x[j][1] - ytmp;
       double delzj = x[j][2] - ztmp;
@@ -530,11 +534,13 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
       // three-body
       int neighk = 0;
-      for (int kk = jj+1; kk < jnum; kk++) {
+      for (int kk =jj+1; kk < jnum; kk++) {
 
         int k = jlist[kk];
         k &= NEIGHMASK;
         tagint ktag = tag[k];
+
+        cout << "k: " << k << endl;
 
         //if (k == j) continue;
 
@@ -574,6 +580,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
         drjk(1, neighk) = delyjk;
         drjk(2, neighk) = delzjk;
         tagsk[neighbours].push_back(k);
+        cout << tags
 
         // increment
         neighk++;
