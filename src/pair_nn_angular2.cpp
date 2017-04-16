@@ -462,8 +462,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
     int i = ilist[ii];
     tagint itag = tag[i];
 
-    cout << "i: " << i << endl;
-
     double xtmp = x[i][0];
     double ytmp = x[i][1];
     double ztmp = x[i][2];
@@ -486,7 +484,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
     std::vector<arma::mat> cosThetas(jnum-1);
     std::vector<arma::mat> Rjks(jnum-1);
     std::vector<arma::mat> drjks(jnum-1);
-    std::vector<std::vector<int>> tagsk(jnum+3);
+    std::vector<std::vector<int>> tagsk(jnum-1);
 
     // input vector to NN
     arma::mat inputVector(1, m_numberOfSymmFunc, arma::fill::zeros);
@@ -500,8 +498,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
       int j = jlist[jj];
       j &= NEIGHMASK;
       tagint jtag = tag[j];
-
-      cout << "j: " << j << endl;
 
       double delxj = x[j][0] - xtmp;
       double delyj = x[j][1] - ytmp;
@@ -534,13 +530,11 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
       // three-body
       int neighk = 0;
-      for (int kk =jj+1; kk < jnum; kk++) {
+      for (int kk = jj+1; kk < jnum; kk++) {
 
         int k = jlist[kk];
         k &= NEIGHMASK;
         tagint ktag = tag[k];
-
-        cout << "k: " << k << endl;
 
         //if (k == j) continue;
 
@@ -580,7 +574,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
         drjk(1, neighk) = delyjk;
         drjk(2, neighk) = delzjk;
         tagsk[neighbours].push_back(k);
-        cout << tags
 
         // increment
         neighk++;
@@ -624,7 +617,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
     // check
     for (auto inputValue : inputVector) {
-      if (inputValue > 1.38635211025)
+      if (inputValue > 14.6962)
         cout << "Large input value: " << inputValue << endl;
       else if (inputValue < 0.0)
         cout << "Negative input value: " << inputValue << endl;
@@ -805,31 +798,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
     f[i][2] += fz2;*/
   }
 
-  cout << std::setprecision(14) << f[0][0] << " " << f[0][1] << " " << 
-  f[0][2] << endl;
-  cout << std::setprecision(14) << f[1][0] << " " << f[1][1] << " " << 
-  f[1][2] << endl;
-  cout << std::setprecision(14) << f[2][0] << " " << f[2][1] << " " << 
-  f[2][2] << endl;
-  cout << endl;
-  if (myStep == 5) exit(1);
-
   if (vflag_fdotr) virial_fdotr_compute();
-
-  // write out all forces
-  /*std::ofstream forces;
-    if (!myStep) {
-    forces.open("../TestNN/Tests/Forces/Box/forcesNN.txt");
-    forces << "Every 100 steps for 1000 steps" << endl;
-  }
-  else if (!(myStep % 100))
-    forces.open("Tests/Forces/Box/forcesNN.txt", std::ios::app);
-  for (int ii; ii < inum; ii++) {
-    int i = ilist[ii];
-    forces << i << " " << f[i][0] << " " << f[i][1] << " " << 
-    f[i][2] << endl;
-  }
-  forces.close();*/
 
   myStep++;
 }
@@ -1084,23 +1053,17 @@ void PairNNAngular2::read_file(char *file)
 
   // read config file
   std::ifstream inputConfigs;
-  inputConfigs.open("../Silicon/Data/12.04-20.47.37/neighbours.txt");
+  inputConfigs.open("../Silicon/configs.xyz");
 
   if ( !inputConfigs.is_open() ) cout << "Config file not opened" << endl;
 
-  // skip blank line
-  //std::getline(inputParameters, dummyLine);
-
-  arma::mat configs(3003,6);
-  i = 0;
-  double dummy;
-  std::string line;
-  while ( i < arma::size(configs)(0) && 
-          inputConfigs >> configs(i,0) >> configs(i,1) >> configs(i,2) 
-          >> dummy >> configs(i,3) >> configs(i,4) >> configs(i,5) ) {
-    std::getline(inputConfigs, line);
-    i++;
-  }
-
+  // read confis
+  
+  int id;
+  std::string line; 
+  std::vector<double> temp(4);
+  while ( inputConfigs >> id >> temp[0] >> temp[1] >> temp[2])
+    configs.push_back( {id, temp} );
+  
   cout << "Config file read" << endl;
 }

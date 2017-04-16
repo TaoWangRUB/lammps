@@ -63,10 +63,9 @@ class PairMySW : public Pair {
   std::string filename;
   std::string dirName;
   std::ofstream outfile;
+  std::ofstream outConfigs;
   int myStep = 0;
   int randomAtom;
-  std::ofstream pairForces;
-  std::ofstream tripletForces;
   void makeDirectory();
 
   virtual void allocate();

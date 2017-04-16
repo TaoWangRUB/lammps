@@ -102,10 +102,7 @@ class PairNNAngular2 : public Pair {
   int m_numberOfParameters;
   const double m_pi = arma::datum::pi;
   int myStep = 0;
-  std::ofstream pairForces;
-  std::ofstream tripletForces;
-
-  arma::mat configs;
+  std::vector<std::pair<int, std::vector<double>>> configs;
 
   void allocate();
   void read_file(char *);

@@ -210,29 +210,6 @@ void PairMySW::compute(int eflag, int vflag)
 
   if (vflag_fdotr) virial_fdotr_compute();
 
-  /*cout << f[0][0] << " " << f[0][1] << " " << f[0][2] << endl;
-  cout << f[1][0] << " " << f[1][1] << " " << f[1][2] << endl;
-  cout << f[2][0] << " " << f[2][1] << " " << f[2][2] << endl;
-  cout << endl;
-  if (myStep == 5) exit(1);*/
-
-  // write out all forces
-  /*std::ofstream forces;
-  if (!myStep) {
-    forces.open("../TestNN/Tests/Forces/ExpandedBox/forcesSW.txt");
-    forces << "Every 100 steps for 1000 steps" << endl;
-  }
-  else if (!(myStep % 100))
-    forces.open("../TestNN/Tests/Forces/ExpandedBox/forcesSW.txt", std::ios::app);
-  for (int ii; ii < inum; ii++) {
-    int i = ilist[ii];
-    forces << i << " " << f[i][0] << " " << f[i][1] << " " << 
-    f[i][2] << endl;
-  }
-  forces.close();*/
-
-  
-
   // EDITING: output neighbour lists and energies
   // after all computations are made
   //outfile.open(filename.c_str(), std::ios::app);
@@ -415,7 +392,7 @@ void PairMySW::makeDirectory()
   std::string command = "mkdir " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not make directory" << std::endl;
-  filename = dirName + "/" + filename;
+  filename = dirName + "/neighbours.txt";
   std::cout << "DIRNAME : " << dirName << std::endl;
   std::cout << "FILENAME: " << filename << std::endl;
 
