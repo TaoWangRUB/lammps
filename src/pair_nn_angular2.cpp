@@ -491,6 +491,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
     // keep track of how many atoms below r2
     int neighbours = 0; 
+    int triplets = 0;
 
     // collect all pairs
     for (int jj = 0; jj < jnum; jj++) {
@@ -548,6 +549,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
         if (rsq2 >= cutoff*cutoff) continue;
+
+        triplets++;
         
         // calculate quantites needed in G4
         double rik = sqrt(rsq2);
@@ -584,7 +587,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
             /*inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
                                    m_parameters[s][2], m_parameters[s][3]);*/
-            inputVector(0,s) += G5(rij, rik, cosTheta,
+            inputVector(0,s) += 2*G5(rij, rik, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
                                    m_parameters[s][2], m_parameters[s][3]);
       }
@@ -626,10 +629,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
     // apply NN to get energy
     evdwl = network(inputVector);
 
-    eatom[i] += evdwl;///(neighbours);
+    eatom[i] += evdwl;//*(5.0/6.0);
 
     // set energy manually (not use ev_tally for energy)
-    eng_vdwl += evdwl;///(neighbours);
+    eng_vdwl += evdwl;//*(5.0/6.0);
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation();
@@ -1052,7 +1055,7 @@ void PairNNAngular2::read_file(char *file)
   std::cout << "File read......" << std::endl;
 
   // read config file
-  std::ifstream inputConfigs;
+  /*std::ifstream inputConfigs;
   inputConfigs.open("../Silicon/configs.xyz");
 
   if ( !inputConfigs.is_open() ) cout << "Config file not opened" << endl;
@@ -1065,5 +1068,5 @@ void PairNNAngular2::read_file(char *file)
   while ( inputConfigs >> id >> temp[0] >> temp[1] >> temp[2])
     configs.push_back( {id, temp} );
   
-  cout << "Config file read" << endl;
+  cout << "Config file read" << endl;*/
 }
