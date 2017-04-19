@@ -258,7 +258,7 @@ void PairMySW::compute(int eflag, int vflag)
     outfile.open(filename.c_str(), std::ios::app);
 
     // sample ONE atom
-    int chosenAtom = 4;//inum/2;
+    //int chosenAtom = 1;//inum/2;
 
     // sample several atoms
     //int nAtoms = 3;      
@@ -279,6 +279,8 @@ void PairMySW::compute(int eflag, int vflag)
   	  double xi = x[i][0];
   	  double yi = x[i][1];
   	  double zi = x[i][2];
+      itag = tag[i];
+      if (itag != 1) continue;
 
       std::vector<std::pair<std::string, int>> indicies;
       indicies.push_back({"i", i});
@@ -316,12 +318,12 @@ void PairMySW::compute(int eflag, int vflag)
         // of central atom i for use in training
 
         // with tag
-        outfile << std::setprecision(17) << jtag << " " << delr1[0] << " " << 
-                   delr1[1] << " " << delr1[2] << " " << rsq1 << " ";
+        /*outfile << std::setprecision(17) << jtag << " " << delr1[0] << " " << 
+                   delr1[1] << " " << delr1[2] << " " << rsq1 << " ";*/
 
         // without tag
-        /*outfile << std::setprecision(17) << delr1[0] << " " << 
-                   delr1[1] << " " << delr1[2] << " " << rsq1 << " ";*/
+        outfile << std::setprecision(17) << delr1[0] << " " << 
+                   delr1[1] << " " << delr1[2] << " " << rsq1 << " ";
                    
         for (kk = jj+1; kk < jnum; kk++) {
           k = jlist[kk];
@@ -347,8 +349,9 @@ void PairMySW::compute(int eflag, int vflag)
   	  }
 
       // store energy and force
-  		outfile << std::setprecision(17) << energy << " " <<
-      f[i][0] << " " << f[i][1] << " " << f[i][2] << endl;
+  		//outfile << std::setprecision(17) << energy << " " <<
+      //f[i][0] << " " << f[i][1] << " " << f[i][2] << endl;
+      outfile << endl;
 
       /*if (indicies.size() != 10) {
         cout << myStep << " ";

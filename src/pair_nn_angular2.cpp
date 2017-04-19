@@ -537,8 +537,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
         k &= NEIGHMASK;
         tagint ktag = tag[k];
 
-        //if (k == j) continue;
-
         /*double delxk = xtmp - x[k][0];
         double delyk = ytmp - x[k][1];
         double delzk = ztmp - x[k][2];*/
@@ -549,8 +547,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
         if (rsq2 >= cutoff*cutoff) continue;
-
-        triplets++;
         
         // calculate quantites needed in G4
         double rik = sqrt(rsq2);
@@ -587,7 +583,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
             /*inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
                                    m_parameters[s][2], m_parameters[s][3]);*/
-            inputVector(0,s) += 2*G5(rij, rik, cosTheta,
+            inputVector(0,s) += G5(rij, rik, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
                                    m_parameters[s][2], m_parameters[s][3]);
       }
@@ -629,10 +625,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
     // apply NN to get energy
     evdwl = network(inputVector);
 
-    eatom[i] += evdwl;//*(5.0/6.0);
+    eatom[i] += evdwl;
 
     // set energy manually (not use ev_tally for energy)
-    eng_vdwl += evdwl;//*(5.0/6.0);
+    eng_vdwl += evdwl;
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation();
@@ -694,6 +690,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
         for (int l=0; l < neighbours-1; l++) {
 
           int numberOfTriplets = arma::size(Riks[l])(1);
+          if (myStep > 977) numberOfTriplets = 0;
 
           arma::mat dEdRj3(3, numberOfTriplets);
           arma::mat dEdRk3(3, numberOfTriplets); // triplet force for all atoms k
@@ -792,13 +789,13 @@ void PairNNAngular2::compute(int eflag, int vflag)
     }
 
     // update forces
-    /*f[i][0] -= fx3j + fx3k;
-    f[i][1] -= fy3j + fy3k;
-    f[i][2] -= fz3j + fz3k;*/
+    f[i][0] += fx3j + fx3k;
+    f[i][1] += fy3j + fy3k;
+    f[i][2] += fz3j + fz3k;
 
-    /*f[i][0] += fx2;
+    f[i][0] += fx2;
     f[i][1] += fy2;
-    f[i][2] += fz2;*/
+    f[i][2] += fz2;
   }
 
   if (vflag_fdotr) virial_fdotr_compute();
