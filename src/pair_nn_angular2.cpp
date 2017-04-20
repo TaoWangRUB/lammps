@@ -474,7 +474,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
     // collect all neighbours in arma matrix, jnum max
     arma::mat Rij(1, jnum);        // all pairs (i,j)
     arma::mat drij(3, jnum);       // (dxij, dyij, dzyij)   
-    std::vector<int> tagsj(jnum);  // indicies of j-atoms
+    std::vector<int> tagsj;  // indicies of j-atoms
 
     // store all triplets etc in vectors
     // jnum pairs, jnum-1 triplets max
@@ -484,14 +484,13 @@ void PairNNAngular2::compute(int eflag, int vflag)
     std::vector<arma::mat> cosThetas(jnum-1);
     std::vector<arma::mat> Rjks(jnum-1);
     std::vector<arma::mat> drjks(jnum-1);
-    std::vector<std::vector<int>> tagsk(jnum-1);
+    std::vector<std::vector<int>> tagsk;
 
     // input vector to NN
     arma::mat inputVector(1, m_numberOfSymmFunc, arma::fill::zeros);
 
     // keep track of how many atoms below r2
-    int neighbours = 0; 
-    int triplets = 0;
+    int neighbours = 0;
 
     // collect all pairs
     for (int jj = 0; jj < jnum; jj++) {
@@ -514,7 +513,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
       drij(1, neighbours) = delyj;
       drij(2, neighbours) = delzj;
       Rij(0, neighbours) = rij;
-      tagsj[neighbours] = j;
+      tagsj.push_back(j);
+      tagsk.push_back(std::vector<int>());
 
       // apply 2-body symmetry
       for (int s=0; s < m_numberOfSymmFunc; s++)
@@ -643,6 +643,19 @@ void PairNNAngular2::compute(int eflag, int vflag)
     double fx3k = 0;
     double fy3k = 0;
     double fz3k = 0;
+
+    if (myStep > 1450 && myStep < 1500) {  
+      cout << "i: " << i << endl;
+      for (auto t : tagsj)
+        cout << "tagsj: " << t << endl;
+      for (auto b : tagsk) {
+        for (auto bb : b)
+          cout << "tagsk: " << bb << " ";
+        cout << endl;
+      }
+      cout << "neigh: " << neighbours << endl;
+      cout << inputVector << endl;
+    }
     
     // calculate forces by differentiating the symmetry functions
     // UNTRUE(?): dEdR(j) will be the force contribution from atom j on atom i
@@ -676,6 +689,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
           f[tagsj[l]][1] += fpair*drij(1,l);
           f[tagsj[l]][2] += fpair*drij(2,l);
 
+          if (i == 100000) cout << "2tagsj: " << tagsj[l] << endl;
+
           if (evflag) ev_tally_full(i, 0, 0, fpair,
                                     drij(0,l), drij(1,l), drij(2,l));
           //if (evflag) ev_tally(i, tagsj[l], nlocal, newton_pair,
@@ -690,7 +705,8 @@ void PairNNAngular2::compute(int eflag, int vflag)
         for (int l=0; l < neighbours-1; l++) {
 
           int numberOfTriplets = arma::size(Riks[l])(1);
-          if (myStep > 977) numberOfTriplets = 0;
+          if (myStep > 1450 && myStep < 1500)
+            cout << "triplets: " << numberOfTriplets << endl;
 
           arma::mat dEdRj3(3, numberOfTriplets);
           arma::mat dEdRk3(3, numberOfTriplets); // triplet force for all atoms k
@@ -779,12 +795,17 @@ void PairNNAngular2::compute(int eflag, int vflag)
             f[tagsk[l][m]][1] += fk3[1];
             f[tagsk[l][m]][2] += fk3[2];
 
+            if (i == 1000){
+            cout << "3tagsj: " << tagsj[l] << endl;
+            cout << "3tagsk: " << tagsk[l][m] << endl;}
+
             if (evflag) ev_tally3_nn(i, tagsj[l], tagsk[l][m],
                                      fj3, fk3, 
                                      drij(0,l), drij(1,l), drij(2,l),
                                      driks[l](0,m), driks[l](1,m), driks[l](2,m));
           }
         }
+        if (i == 1000) exit(1);
       }
     }
 
@@ -796,6 +817,9 @@ void PairNNAngular2::compute(int eflag, int vflag)
     f[i][0] += fx2;
     f[i][1] += fy2;
     f[i][2] += fz2;
+
+    if (myStep > 1450 && myStep < 1500)
+    cout << "*****" << endl;
   }
 
   if (vflag_fdotr) virial_fdotr_compute();

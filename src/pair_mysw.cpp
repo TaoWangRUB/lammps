@@ -251,26 +251,21 @@ void PairMySW::compute(int eflag, int vflag)
 
   // write neighbour lists every 100 steps
   //bool write = 1;
-  if ( !(myStep % 1) ) {
+  if ( !(myStep % 10) ) {
   //if (write) {
     //std::cout << "Writing to file..." << std::endl;
+
+    cout << myStep << endl;
     
     outfile.open(filename.c_str(), std::ios::app);
 
     // sample ONE atom
-    //int chosenAtom = 1;//inum/2;
+    int chosenAtom = 4;
 
     // sample several atoms
     //int nAtoms = 3;      
     //arma::ivec atoms = arma::randi<arma::ivec>
     //                   (nAtoms, arma::distr_param(0, inum));
-
-    double fx2 = 0;
-    double fy2 = 0;
-    double fz2 = 0;
-    double fx3 = 0;
-    double fy3 = 0;
-    double fz3 = 0;
 
     //for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
     //for (auto ii : atoms) {
@@ -279,8 +274,10 @@ void PairMySW::compute(int eflag, int vflag)
   	  double xi = x[i][0];
   	  double yi = x[i][1];
   	  double zi = x[i][2];
+      
+      // THIS CHOOSES ONLY ONE ATOM BASED ON TAG
       itag = tag[i];
-      if (itag != 1) continue;
+      //if (itag != chosenAtom) continue;
 
       std::vector<std::pair<std::string, int>> indicies;
       indicies.push_back({"i", i});
@@ -312,7 +309,7 @@ void PairMySW::compute(int eflag, int vflag)
         indicies.push_back({"j", jtag});
 
         twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
-        energy += evdwl;
+        energy += evdwl/2;
 
         // save positions of neighbour j relative to position
         // of central atom i for use in training
@@ -349,9 +346,10 @@ void PairMySW::compute(int eflag, int vflag)
   	  }
 
       // store energy and force
-  		//outfile << std::setprecision(17) << energy << " " <<
+  		outfile << std::setprecision(17) << energy << endl;// << " " <<
       //f[i][0] << " " << f[i][1] << " " << f[i][2] << endl;
-      outfile << endl;
+      
+      //outfile << endl;
 
       /*if (indicies.size() != 10) {
         cout << myStep << " ";
@@ -388,9 +386,15 @@ void PairMySW::makeDirectory()
   time (&rawtime);
   timeinfo = localtime (&rawtime);
 
-  strftime (buffer,15,"%d.%m-%H.%M.%S", timeinfo);
-  std::string str(buffer);
-  dirName = "Data/" + str;
+
+  if (saveOrLoad == "save") {
+    strftime (buffer,15,"%d.%m-%H.%M.%S", timeinfo);
+    std::string str(buffer);
+    dirName = "Data/" + str;
+  }
+  else {
+    dirName = "Data/" + saveOrLoad + "/neighbours.txt";
+  }
 
   std::string command = "mkdir " + dirName;
   if ( system(command.c_str()) ) 
@@ -438,7 +442,7 @@ void PairMySW::coeff(int narg, char **arg)
 
   // EDIT: read filename argument if supplied
   if (narg == 3 + atom->ntypes + 1) {
-    filename = arg[narg-1];
+    saveOrLoad = arg[narg-1];
     narg--;
     makeDirectory();
   }

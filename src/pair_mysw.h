@@ -62,6 +62,7 @@ class PairMySW : public Pair {
   // EDIT: file for neighbour storage
   std::string filename;
   std::string dirName;
+  std::string saveOrLoad;
   std::ofstream outfile;
   std::ofstream outConfigs;
   int myStep = 0;
