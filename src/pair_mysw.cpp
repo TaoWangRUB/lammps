@@ -404,9 +404,12 @@ void PairMySW::makeDirectory()
   std::cout << "FILENAME: " << filename << std::endl;
 
   // copy input script potential file and log to folder for reference
-  command = "cp singleSwSi.in " + dirName;
+  int nAtoms = list->inum;
+  if (nAtoms < 8) command = "cp singleSwSi.in " + dirName;
+  else command = "cp swSi.in " + dirName;
   if ( system(command.c_str()) ) 
-    std::cout << "Could not copy input script" << std::endl;
+      std::cout << "Could not copy input script" << std::endl;
+
   command = "cp ../../lammps/src/pair_mysw.cpp " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not copy lammps script" << std::endl;

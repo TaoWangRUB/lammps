@@ -215,7 +215,7 @@ double PairNNAngular2::G5(double rij, double rik, double cosTheta,
   return pow(2, 1-zeta) * 
          pow(1 + lambda*cosTheta, zeta) *  
          exp( -eta*(rij*rij + rik*rik) ) * 
-         Fc(rij, Rc, false) * Fc(rik, Rc, false);
+         Fc(rij, Rc, true) * Fc(rik, Rc, true);
 }
 
 
@@ -378,9 +378,9 @@ void PairNNAngular2::dG5dj(double xj, double yj, double zj,
 
   double Rj2 = Rj*Rj;
   double Rk2 = Rk*Rk;
-  double Fcj = Fc(Rj, Rc, false);
-  double Fck = Fc(Rk, Rc, false);
-  double dFcj = dFcdR(Rj, Rc, false);
+  double Fcj = Fc(Rj, Rc, true);
+  double Fck = Fc(Rk, Rc, true);
+  double dFcj = dFcdR(Rj, Rc, true);
 
   dGj[0] = pow(2, -zeta)*Fck*(-2*Fcj*Lambda*zeta*
     pow(CosTheta*Lambda + 1, zeta)*(CosTheta*Rk*xj - Rj*xk) - 
@@ -409,9 +409,9 @@ void PairNNAngular2::dG5dk(double xj, double yj, double zj,
 
   double Rj2 = Rj*Rj;
   double Rk2 = Rk*Rk;
-  double Fcj = Fc(Rj, Rc, false);
-  double Fck = Fc(Rk, Rc, false);
-  double dFck = dFcdR(Rk, Rc, false);
+  double Fcj = Fc(Rj, Rc, true);
+  double Fck = Fc(Rk, Rc, true);
+  double dFck = dFcdR(Rk, Rc, true);
 
   dGk[0] = pow(2, -zeta)*Fcj*(-2*Fck*Lambda*zeta*
     pow(CosTheta*Lambda + 1, zeta)*(CosTheta*Rj*xk - Rk*xj) - 
@@ -1081,7 +1081,7 @@ void PairNNAngular2::read_file(char *file)
 
   if ( !inputConfigs.is_open() ) cout << "Config file not opened" << endl;
 
-  // read confis
+  // read configs
   
   int id;
   std::string line; 
