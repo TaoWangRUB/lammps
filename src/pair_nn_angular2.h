@@ -28,7 +28,9 @@ PairStyle(nn/angular2,PairNNAngular2)
 namespace LAMMPS_NS {
 
 class PairNNAngular2 : public Pair {
+
  public:
+
   PairNNAngular2(class LAMMPS *);
   virtual ~PairNNAngular2();
   virtual void compute(int, int);
@@ -44,10 +46,10 @@ class PairNNAngular2 : public Pair {
   arma::mat sigmoidDerivative(arma::mat matrix);
   
   arma::mat Fc(arma::mat R, double Rc, bool cut);
-  double Fc(double R, double Rc, bool cut);
+  double Fc(double R, double Rc);
   
   arma::mat dFcdR(arma::mat R, double Rc, bool cut);
-  double dFcdR(double R, double Rc, bool cut);
+  double dFcdR(double R, double Rc);
   
   double G1(arma::mat Rij, double Rc);
   double G2(double rij, double eta, double Rc, double Rs);
@@ -57,27 +59,40 @@ class PairNNAngular2 : public Pair {
                             double eta, double Rc, double zeta, double lambda);
 
   arma::mat dG1dR(arma::mat Rij, double Rc);
+
   void dG2dR(arma::mat Rij, double eta, double Rc, double Rs, arma::mat& dG2);
-  void dG4dR(double Rij, arma::mat Rik, arma::mat Rjk, 
-             arma::mat cosTheta, double eta, double Rc, 
-             double zeta, double lambda,
-             arma::mat &dEdRj3, arma::mat &dEdRk3,
-             arma::mat drij, arma::mat drik, arma::mat drjk);
+
+  void dG4dR(double xij, double yij, double zij,
+             double xik, double yik, double zik, 
+             double xjk, double yjk, double zjk,
+             double Rij, double Rik, double Rjk, double cosTheta, 
+             double eta, double Rc, double zeta, double lambda,
+             double *dGij, double *dGik);
+
+  void dG5dR(double xij, double yij, double zij,
+             double xik, double yik, double zik, 
+             double Rij, double Rik, double cosTheta, 
+             double eta, double Rc, double zeta, double lambda,
+             double *dGij, double *dGik);
+
   void dG4dj(double xj, double yj, double zj, 
                double xk, double yk, double zk, 
                double Rj, double Rk, double Rjk, double CosTheta,
                double eta, double Rc, double zeta, double Lambda,
                double *dGj);
+
   void dG4dk(double xj, double yj, double zj, 
                double xk, double yk, double zk, 
                double Rj, double Rk, double Rjk, double CosTheta,
                double eta, double Rc, double zeta, double Lambda, 
                double *dGk);
+
   void dG5dj(double xj, double yj, double zj, 
               double xk, double yk, double zk, 
               double Rj, double Rk, double CosTheta, 
               double eta, double Rc, double zeta, double lambda, 
               double *dGj);
+
   void dG5dk(double xj, double yj, double zj, 
               double xk, double yk, double zk, 
               double Rj, double Rk, double CosTheta, 
