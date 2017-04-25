@@ -678,6 +678,9 @@ void PairNNAngular2::compute(int eflag, int vflag)
     double fx3k = 0;
     double fy3k = 0;
     double fz3k = 0;
+
+    double dGjSum[] = {0, 0, 0};
+    double dGkSum[] = {0, 0, 0};
     
     // calculate forces by differentiating the symmetry functions
     // UNTRUE(?): dEdR(j) will be the force contribution from atom j on atom i
@@ -788,10 +791,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
               m_parameters[s][0], m_parameters[s][1], 
               m_parameters[s][2], m_parameters[s][3], dGk);*/
 
-            /*cout << dGj[0] << " " << dGj[1] << " " << dGj[2] << endl;
-            cout << dGk[0] << " " << dGk[1] << " " << dGk[2] << endl;
-            cout << endl;*/
-
+            if (l == 0) {
+              dGjSum[0] += dGj[0];
+              dGjSum[1] += dGj[1];
+              dGjSum[2] += dGj[2];
+              dGkSum[0] += dGk[0];
+              dGkSum[1] += dGk[1];
+              dGkSum[2] += dGk[2];
+            }
 
             fj3[0] = -dEdG(0,s) * dGj[0];
             fj3[1] = -dEdG(0,s) * dGj[1];
@@ -801,19 +808,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
             fk3[0] = -dEdG(0,s) * dGk[0];
             fk3[1] = -dEdG(0,s) * dGk[1];
             fk3[2] = -dEdG(0,s) * dGk[2];
-
-            if (myStep == 9500) {
-            cout << std::setprecision(17) << dGj[0] << " " << dGj[1] << " " 
-            << dGj[2] << endl;
-            cout << std::setprecision(17) << dGk[0] << " " << dGk[1] << " " 
-            << dGk[2] << endl;
-            cout << std::setprecision(17) << "drij: " << drij(0,l) << " " << drij(1,l) << " " <<
-            drij(2,l) << endl;
-            cout << std::setprecision(17) << "drik: " << driks[l](0,m) << " " << driks[l](1,m) << 
-            " " << driks[l](2,m) << endl;
-            cout << m_parameters[s][0] << " " << m_parameters[s][1] << " " <<
-            m_parameters[s][2] << " " << m_parameters[s][3] << endl;
-            exit(1);}
 
             // add both j and k to atom i  
             fx3j -= fj3[0];
@@ -834,10 +828,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
             f[tagsk[l][m]][1] += fk3[1];
             f[tagsk[l][m]][2] += fk3[2];
 
-            if (i == 1000){
-            cout << "3tagsj: " << tagsj[l] << endl;
-            cout << "3tagsk: " << tagsk[l][m] << endl;}
-
             if (evflag) ev_tally3_nn(i, tagsj[l], tagsk[l][m],
                                      fj3, fk3, 
                                      drij(0,l), drij(1,l), drij(2,l),
@@ -846,6 +836,37 @@ void PairNNAngular2::compute(int eflag, int vflag)
         }
       }
     }
+
+    /*if (myStep == 0 && i == 2) {
+      out2.open("Tests/Gderivative/sympyConfigs.txt");
+      for (int l=0; l < neighbours; l++)
+        out2 << std::setprecision(18) << drij(0,l) << " " << drij(1,l) <<
+        " " << drij(2,l) << " ";
+      out2 << endl;
+      out2.close();
+
+      out.open("Tests/Gderivative/sympyDerivatives.txt");
+      out << std::setprecision(18) << dGjSum[0] << " " << dGjSum[1] << " " <<
+      dGjSum[2] << endl;
+      out << std::setprecision(18) << dGkSum[0] << " " << dGkSum[1] << " " << 
+      dGkSum[2] << endl;
+      out.close();
+    }
+    else if (!(myStep % 1000) && i == 2) {
+      out2.open("Tests/Gderivative/sympyConfigs.txt", std::ios::app);
+      for (int l=0; l < neighbours; l++)
+        out2 << std::setprecision(18) << drij(0,l) << " " << drij(1,l) <<
+        " " << drij(2,l) << " ";
+      out2 << endl;
+      out2.close();
+
+      out.open("Tests/Gderivative/sympyDerivatives.txt", std::ios::app);
+      out << std::setprecision(18) << dGjSum[0] << " " << dGjSum[1] << " " <<
+      dGjSum[2] << endl;
+      out << std::setprecision(18) << dGkSum[0] << " " << dGkSum[1] << " " << 
+      dGkSum[2] << endl;
+      out.close();
+    }*/
 
     // update forces
     f[i][0] += fx3j + fx3k;

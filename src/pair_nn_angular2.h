@@ -118,6 +118,9 @@ class PairNNAngular2 : public Pair {
   const double m_pi = arma::datum::pi;
   int myStep = 0;
 
+  std::ofstream out;
+  std::ofstream out2;
+
   void allocate();
   void read_file(char *);
 };
