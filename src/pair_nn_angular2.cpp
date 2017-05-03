@@ -243,7 +243,8 @@ void PairNNAngular2::dG4dR(double xij, double yij, double zij,
   double term3ij = F1F2 * Mij * FcRik * FcRjk;
   double term3ik = F1F2 * Mik * FcRij * FcRjk;
 
-  double termjk = (F1F2 * Mjk * FcRij * FcRik) + 2*F1F2*F3;
+  double termjkij = (F1F2 * Mjk * FcRij * FcRik) + 2*F1F2*F3;
+  double termjkik = -(F1F2 * Mjk * FcRij * FcRik) + 2*F1F2*F3;
 
   double RijInv = 1.0 / Rij;
   double cosRijInv2 = cosTheta * RijInv*RijInv;
@@ -258,15 +259,16 @@ void PairNNAngular2::dG4dR(double xij, double yij, double zij,
   double termij = (cosRijInv2 * term1) + term2 - RijInv*term3ij;
   double termik = (cosRikInv2 * term1) + term2 - RikInv*term3ik;
   double crossTerm = -term1 * RijRikInv;
-  termjk *= RjkInv;                 // correct sign for ij
+  termjkij *= RjkInv;                 
+  termjkik *= RjkInv;
 
-  dGij[0] = xij*termij + xik*crossTerm + xjk*termjk;
-  dGij[1] = yij*termij + yik*crossTerm + yjk*termjk;
-  dGij[2] = zij*termij + zik*crossTerm + zjk*termjk;
+  dGij[0] = xij*termij + xik*crossTerm + xjk*termjkij;
+  dGij[1] = yij*termij + yik*crossTerm + yjk*termjkij;
+  dGij[2] = zij*termij + zik*crossTerm + zjk*termjkij;
 
-  dGik[0] = xik*termik + xij*crossTerm - xjk*termjk;
-  dGik[1] = yik*termij + yij*crossTerm - yjk*termjk;
-  dGik[2] = zik*termij + zij*crossTerm - zjk*termjk;
+  dGik[0] = xik*termik + xij*crossTerm + xjk*termjkik;
+  dGik[1] = yik*termij + yij*crossTerm + yjk*termjkik;
+  dGik[2] = zik*termij + zij*crossTerm + zjk*termjkik;
 }
 
 void PairNNAngular2::dG5dR(double xij, double yij, double zij,
@@ -406,6 +408,103 @@ void PairNNAngular2::dG4dk(double xj, double yj, double zj,
     exp(-eta*(Rj2 + Rjk2 + Rk2))/(Rj*Rjk*pow(Rk, 2)*
     (CosTheta*Lambda + 1));
 }
+
+/*void PairNNAngular2::dG4dj(double xj, double yj, double zj, 
+                           double xk, double yk, double zk, 
+                           double Rj, double Rk, double Rjk, double CosTheta,
+                           double eta, double Rc, double zeta, double Lambda, 
+                           double *dGj) {
+
+  double Rj2 = Rj*Rj;
+  double Rk2 = Rk*Rk;
+  double Rjk2 = Rjk*Rjk;
+  double Fcj = Fc(Rj, Rc);
+  double Fck = Fc(Rk, Rc);
+  double Fcjk = Fc(Rjk, Rc);
+  double dFcj = dFcdR(Rj, Rc);
+  double dFcjk = dFcdR(Rjk, Rc);
+  double expR = exp(-eta*(Rj2 + Rjk2 + Rk2));
+  double powZeta = pow(2, -zeta);
+  double powCosTheta = pow(CosTheta*Lambda + 1, zeta);
+  double powCosThetaPlus1 = powCosTheta*(CosTheta*Lambda + 1);
+
+  dGj[0] = powZeta*Fck*(-2*Fcj*Fcjk*Lambda*Rjk*zeta*
+    powCosTheta*(CosTheta*Rk*xj - Rj*xk) - 
+    4*Fcj*Fcjk*Rj2*Rjk*Rk*eta*(2*xj - xk)*
+    powCosThetaPlus1 + 2.0*Fcj*Rj2*
+    Rk*dFcjk*(xj - xk)*powCosThetaPlus1 + 
+    2.0*Fcjk*Rj*Rjk*Rk*dFcj*xj*powCosThetaPlus1)*
+    expR/(Rj2*Rjk*Rk*
+    (CosTheta*Lambda + 1));
+
+  dGj[1] = powZeta*Fck*(-2*Fcj*Fcjk*Lambda*Rjk*zeta*
+    powCosTheta*(CosTheta*Rk*yj - Rj*yk) - 
+    4*Fcj*Fcjk*Rj2*Rjk*Rk*eta*(2*yj - yk)*
+    powCosThetaPlus1 + 2.0*Fcj*Rj2*
+    Rk*dFcjk*(yj - yk)*powCosThetaPlus1 + 
+    2.0*Fcjk*Rj*Rjk*Rk*dFcj*yj*powCosThetaPlus1)*
+    expR/(Rj2*Rjk*Rk*
+    (CosTheta*Lambda + 1));
+
+  dGj[2] = powZeta*Fck*(-2*Fcj*Fcjk*Lambda*Rjk*zeta*
+    powCosTheta*(CosTheta*Rk*zj - Rj*zk) - 
+    4*Fcj*Fcjk*Rj2*Rjk*Rk*eta*(2*zj - zk)*
+    powCosThetaPlus1 + 2.0*Fcj*Rj2*
+    Rk*dFcjk*(zj - zk)*powCosThetaPlus1 + 
+    2.0*Fcjk*Rj*Rjk*Rk*dFcj*zj*powCosThetaPlus1)*
+    expR/(Rj2*Rjk*Rk*
+    (CosTheta*Lambda + 1));
+}
+
+void PairNNAngular2::dG4dk(double xj, double yj, double zj, 
+                           double xk, double yk, double zk, 
+                           double Rj, double Rk, double Rjk, double CosTheta,
+                           double eta, double Rc, double zeta, double Lambda,
+                           double *dGk) {
+
+  double Rj2 = Rj*Rj;
+  double Rk2 = Rk*Rk;
+  double Rjk2 = Rjk*Rjk;
+  double Fcj = Fc(Rj, Rc);
+  double Fck = Fc(Rk, Rc);
+  double Fcjk = Fc(Rjk, Rc);
+  double dFck = dFcdR(Rk, Rc);
+  double dFcjk = dFcdR(Rjk, Rc);
+  double expR = exp(-eta*(Rj2 + Rjk2 + Rk2));
+  double powZeta = pow(2, -zeta);
+  double powCosTheta = pow(CosTheta*Lambda + 1, zeta);
+  double powCosThetaPlus1 = powCosTheta*(CosTheta*Lambda + 1);
+
+  dGk[0] = powZeta*Fcj*(-2*Fcjk*Fck*Lambda*Rjk*zeta*
+    powCosTheta*(CosTheta*Rj*xk - Rk*xj) + 
+    4*Fcjk*Fck*Rj*Rjk*Rk2*eta*(xj - 2*xk)*
+    powCosThetaPlus1 + 
+    2.0*Fcjk*Rj*Rjk*Rk*dFck*xk*powCosThetaPlus1 - 
+    2.0*Fck*Rj*Rk2*dFcjk*(xj - xk)*
+    powCosThetaPlus1)*
+    expR/(Rj*Rjk*Rk2*
+    (CosTheta*Lambda + 1));
+
+  dGk[1] = powZeta*Fcj*(-2*Fcjk*Fck*Lambda*Rjk*zeta*
+    powCosTheta*(CosTheta*Rj*yk - Rk*yj) + 
+    4*Fcjk*Fck*Rj*Rjk*Rk2*eta*(yj - 2*yk)*
+    powCosThetaPlus1 + 
+    2.0*Fcjk*Rj*Rjk*Rk*dFck*yk*powCosThetaPlus1 - 
+    2.0*Fck*Rj*Rk2*dFcjk*(yj - yk)*
+    powCosThetaPlus1)*
+    expR/(Rj*Rjk*Rk2*
+    (CosTheta*Lambda + 1));
+
+  dGk[2] = powZeta*Fcj*(-2*Fcjk*Fck*Lambda*Rjk*zeta*
+    powCosTheta*(CosTheta*Rj*zk - Rk*zj) + 
+    4*Fcjk*Fck*Rj*Rjk*Rk2*eta*(zj - 2*zk)*
+    powCosThetaPlus1 + 
+    2.0*Fcjk*Rj*Rjk*Rk*dFck*zk*powCosThetaPlus1 - 
+    2.0*Fck*Rj*Rk2*dFcjk*(zj - zk)*
+    powCosThetaPlus1)*
+    expR/(Rj*Rjk*Rk2*
+    (CosTheta*Lambda + 1));
+}*/
 
 void PairNNAngular2::dG5dj(double xj, double yj, double zj, 
             double xk, double yk, double zk, 
@@ -615,12 +714,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
         // apply 3-body symmetry
         for (int s=0; s < m_numberOfSymmFunc; s++)
           if ( m_parameters[s].size() == 4 ) 
-            /*inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
-                                   m_parameters[s][0], m_parameters[s][1], 
-                                   m_parameters[s][2], m_parameters[s][3]);*/
-            inputVector(0,s) += G5(rij, rik, cosTheta,
+            inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
                                    m_parameters[s][2], m_parameters[s][3]);
+            /*inputVector(0,s) += G5(rij, rik, cosTheta,
+                                   m_parameters[s][0], m_parameters[s][1], 
+                                   m_parameters[s][2], m_parameters[s][3]);*/
       }
 
       // skip if no triplets left
@@ -752,20 +851,21 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
             /*dG4dR(drij(0,l), drij(1,l), drij(2,l),
                   driks[l](0,m), driks[l](1,m), driks[l](2,m),
-                  drjks[l](0,m), drjks[l](1,m), drjks[l](2,m)
+                  drjks[l](0,m), drjks[l](1,m), drjks[l](2,m),
                   Rij(0,l), Riks[l](0,m), Rjks[l](0,m), cosThetas[l](0,m),
                   m_parameters[s][0], m_parameters[s][1], 
                   m_parameters[s][2], m_parameters[s][3], 
                   dGj, dGk);*/
 
-            dG5dR(drij(0,l), drij(1,l), drij(2,l),
+
+            /*dG5dR(drij(0,l), drij(1,l), drij(2,l),
                   driks[l](0,m), driks[l](1,m), driks[l](2,m),
                   Rij(0,l), Riks[l](0,m), cosThetas[l](0,m),
                   m_parameters[s][0], m_parameters[s][1], 
                   m_parameters[s][2], m_parameters[s][3], 
-                  dGj, dGk);
+                  dGj, dGk);*/
 
-            /*dG4dj(drij(0,l), drij(1,l), drij(2,l), 
+            dG4dj(drij(0,l), drij(1,l), drij(2,l), 
               driks[l](0,m), driks[l](1,m), driks[l](2,m), 
               Rij(0,l), Riks[l](0,m), Rjks[l](0,m), 
               cosThetas[l](0,m), m_parameters[s][0], 
@@ -777,7 +877,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
               Rij(0,l), Riks[l](0,m), Rjks[l](0,m), 
               cosThetas[l](0,m), m_parameters[s][0], 
               m_parameters[s][1], m_parameters[s][2], 
-              m_parameters[s][3], dGk);*/
+              m_parameters[s][3], dGk);
 
             /*dG5dj(drij(0,l), drij(1,l), drij(2,l), 
               driks[l](0,m), driks[l](1,m), driks[l](2,m), 
@@ -837,36 +937,46 @@ void PairNNAngular2::compute(int eflag, int vflag)
       }
     }
 
-    /*if (myStep == 0 && i == 2) {
-      out2.open("Tests/Gderivative/sympyConfigs.txt");
+    if (myStep == 0 && i == 2) {
+      out2.open("Tests/Gderivative/sympyConfigsG4.txt");
       for (int l=0; l < neighbours; l++)
         out2 << std::setprecision(18) << drij(0,l) << " " << drij(1,l) <<
         " " << drij(2,l) << " ";
       out2 << endl;
       out2.close();
 
-      out.open("Tests/Gderivative/sympyDerivatives.txt");
+      out.open("Tests/Gderivative/sympyDerivativesG4.txt");
       out << std::setprecision(18) << dGjSum[0] << " " << dGjSum[1] << " " <<
       dGjSum[2] << endl;
       out << std::setprecision(18) << dGkSum[0] << " " << dGkSum[1] << " " << 
       dGkSum[2] << endl;
       out.close();
+
+      /*cout << std::setprecision(18) << dGjSum[0] << " " << dGjSum[1] << " " <<
+      dGjSum[2] << endl;
+      cout << std::setprecision(18) << dGkSum[0] << " " << dGkSum[1] << " " << 
+      dGkSum[2] << endl;*/
     }
     else if (!(myStep % 1000) && i == 2) {
-      out2.open("Tests/Gderivative/sympyConfigs.txt", std::ios::app);
+      out2.open("Tests/Gderivative/sympyConfigsG4.txt", std::ios::app);
       for (int l=0; l < neighbours; l++)
         out2 << std::setprecision(18) << drij(0,l) << " " << drij(1,l) <<
         " " << drij(2,l) << " ";
       out2 << endl;
       out2.close();
 
-      out.open("Tests/Gderivative/sympyDerivatives.txt", std::ios::app);
+      out.open("Tests/Gderivative/sympyDerivativesG4.txt", std::ios::app);
       out << std::setprecision(18) << dGjSum[0] << " " << dGjSum[1] << " " <<
       dGjSum[2] << endl;
       out << std::setprecision(18) << dGkSum[0] << " " << dGkSum[1] << " " << 
       dGkSum[2] << endl;
       out.close();
-    }*/
+
+      /*cout << std::setprecision(18) << dGjSum[0] << " " << dGjSum[1] << " " <<
+      dGjSum[2] << endl;
+      cout << std::setprecision(18) << dGkSum[0] << " " << dGkSum[1] << " " << 
+      dGkSum[2] << endl;*/
+    }
 
     // update forces
     f[i][0] += fx3j + fx3k;

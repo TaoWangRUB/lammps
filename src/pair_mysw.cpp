@@ -210,52 +210,12 @@ void PairMySW::compute(int eflag, int vflag)
 
   if (vflag_fdotr) virial_fdotr_compute();
 
+
   // EDITING: output neighbour lists and energies
   // after all computations are made
-  //outfile.open(filename.c_str(), std::ios::app);
-
-  // output distances to compute angular distribution
-  /*if (myStep == 0) {
-    randomAtom = inum/2;
-  }
-  
-  i = ilist[randomAtom];
-  double xi = x[i][0];
-  double yi = x[i][1];
-  double zi = x[i][2];
-
-  jlist = firstneigh[i];
-  jnum = numneigh[i];
-  for (jj = 0; jj < jnumm1; jj++) {
-    j = jlist[jj];
-    j &= NEIGHMASK;
-    jtag = tag[j];
-    jtype = map[type[j]];
-
-    delx = xi - x[j][0];
-    dely = yi - x[j][1];
-    delz = zi - x[j][2];
-
-    rsq = delx*delx + dely*dely + delz*delz;
-
-    ijparam = elem2param[itype][jtype][jtype];
-
-    if (rsq >= params[ijparam].cutsq) continue;
-
-    // save distance from central atom i to neighbour j
-    outfile << delx << " " << dely << " " << delz << " " << rsq << " ";
-  }
-
-  outfile << std::endl;
-  outfile.close();*/
 
   // write neighbour lists every 100 steps
-  //bool write = 1;
-  if ( !(myStep % 10) ) {
-  //if (write) {
-    //std::cout << "Writing to file..." << std::endl;
-
-    cout << myStep << endl;
+  if ( writeNeigh && !(myStep % 10) ) {
     
     outfile.open(filename.c_str(), std::ios::app);
 
@@ -309,14 +269,12 @@ void PairMySW::compute(int eflag, int vflag)
         indicies.push_back({"j", jtag});
 
         twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
+
+        // counting each pair twice -> divide by 2
         energy += evdwl/2;
 
         // save positions of neighbour j relative to position
         // of central atom i for use in training
-
-        // with tag
-        /*outfile << std::setprecision(17) << jtag << " " << delr1[0] << " " << 
-                   delr1[1] << " " << delr1[2] << " " << rsq1 << " ";*/
 
         // without tag
         outfile << std::setprecision(17) << delr1[0] << " " << 
@@ -345,11 +303,8 @@ void PairMySW::compute(int eflag, int vflag)
         }
   	  }
 
-      // store energy and force
-  		outfile << std::setprecision(17) << energy << endl;// << " " <<
-      //f[i][0] << " " << f[i][1] << " " << f[i][2] << endl;
-      
-      //outfile << endl;
+      // store energy 
+  		outfile << std::setprecision(17) << energy << endl;
 
       /*if (indicies.size() != 10) {
         cout << myStep << " ";
@@ -376,7 +331,7 @@ void PairMySW::allocate()
   map = new int[n+1];
 }
 
-void PairMySW::makeDirectory() 
+void PairMySW::makeDirectory(std::string name) 
 {
   // make new folder named current time
   time_t rawtime;
@@ -386,15 +341,9 @@ void PairMySW::makeDirectory()
   time (&rawtime);
   timeinfo = localtime (&rawtime);
 
-
-  if (saveOrLoad == "save") {
-    strftime (buffer,15,"%d.%m-%H.%M.%S", timeinfo);
-    std::string str(buffer);
-    dirName = "Data/" + str;
-  }
-  else {
-    dirName = "Data/" + saveOrLoad + "/neighbours.txt";
-  }
+  strftime (buffer,15,"%d.%m-%H.%M.%S", timeinfo);
+  std::string dateDir(buffer);
+  dirName = "Data/" + name + '/' + dateDir;
 
   std::string command = "mkdir " + dirName;
   if ( system(command.c_str()) ) 
@@ -445,9 +394,10 @@ void PairMySW::coeff(int narg, char **arg)
 
   // EDIT: read filename argument if supplied
   if (narg == 3 + atom->ntypes + 1) {
-    saveOrLoad = arg[narg-1];
+    std::string name = arg[narg-1];
     narg--;
-    makeDirectory();
+    writeNeigh = 1;
+    makeDirectory(name);
   }
 
   // insure I,J args are * *
