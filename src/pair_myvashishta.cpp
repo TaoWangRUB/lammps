@@ -268,8 +268,7 @@ void PairMyVashishta::compute(int eflag, int vflag)
       double yi = x[i][1];
       double zi = x[i][2];
 
-      // write out coordinates of chosen atoms to check that they
-      // are not on the edge of the system
+      // write out coordinates of chosen atoms
       if (myStep == 0) {
         std::cout << "Chosen atom: "
         << i << " " << itype << " " << xi << " " << yi << " " 

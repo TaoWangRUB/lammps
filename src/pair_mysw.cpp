@@ -220,14 +220,13 @@ void PairMySW::compute(int eflag, int vflag)
     outfile.open(filename.c_str(), std::ios::app);
 
     // sample ONE atom
-    int chosenAtom = 4;
+    int chosenAtom = 2;
 
     // sample several atoms
     //int nAtoms = 3;      
     //arma::ivec atoms = arma::randi<arma::ivec>
     //                   (nAtoms, arma::distr_param(0, inum));
 
-    //for (ii = chosenAtom; ii < chosenAtom+1; ii++) {
     //for (auto ii : atoms) {
     for (ii = 0; ii < inum; ii++) {
   	  i = ilist[ii];
@@ -237,14 +236,10 @@ void PairMySW::compute(int eflag, int vflag)
       
       // THIS CHOOSES ONLY ONE ATOM BASED ON TAG
       itag = tag[i];
-      //if (itag != chosenAtom) continue;
+      if (itag != chosenAtom) continue;
 
       std::vector<std::pair<std::string, int>> indicies;
       indicies.push_back({"i", i});
-
-      /*if (myStep == 0)
-        std::cout << "Chosen atom: " << i << " " << xi << " " << yi << " " 
-                  << zi << " " << std::endl;*/
 
       double energy = 0;
 
@@ -331,11 +326,11 @@ void PairMySW::allocate()
   map = new int[n+1];
 }
 
-void PairMySW::makeDirectory(std::string name) 
+void PairMySW::makeDirectory() 
 {
   // make new folder named current time
-  time_t rawtime;
-  struct tm * timeinfo;
+  /*time_t rawtime;
+  struct tm *timeinfo;
   char buffer [15];
 
   time (&rawtime);
@@ -343,9 +338,11 @@ void PairMySW::makeDirectory(std::string name)
 
   strftime (buffer,15,"%d.%m-%H.%M.%S", timeinfo);
   std::string dateDir(buffer);
-  dirName = "Data/" + name + '/' + dateDir;
+  dirName = "Data/" + name + '/' + dateDir;*/
 
-  std::string command = "mkdir " + dirName;
+  filename = "Data/TrainingData/neighbours.txt";
+
+  /*std::string command = "mkdir " + dirName;
   if ( system(command.c_str()) ) 
     std::cout << "Could not make directory" << std::endl;
   filename = dirName + "/neighbours.txt";
@@ -353,15 +350,15 @@ void PairMySW::makeDirectory(std::string name)
   std::cout << "FILENAME: " << filename << std::endl;
 
   // copy input script potential file and log to folder for reference
-  int nAtoms = list->inum;
-  if (nAtoms < 8) command = "cp singleSwSi.in " + dirName;
+  cout << list->inum << endl;
+  if (1 < 8) command = "cp singleSwSi.in " + dirName;
   else command = "cp swSi.in " + dirName;
   if ( system(command.c_str()) ) 
       std::cout << "Could not copy input script" << std::endl;
 
   command = "cp ../../lammps/src/pair_mysw.cpp " + dirName;
   if ( system(command.c_str()) ) 
-    std::cout << "Could not copy lammps script" << std::endl;
+    std::cout << "Could not copy lammps script" << std::endl;*/
 
   // trying to open file, check if file successfully opened
   outfile.open(filename.c_str());
@@ -397,7 +394,7 @@ void PairMySW::coeff(int narg, char **arg)
     std::string name = arg[narg-1];
     narg--;
     writeNeigh = 1;
-    makeDirectory(name);
+    makeDirectory();
   }
 
   // insure I,J args are * *

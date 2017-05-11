@@ -68,7 +68,7 @@ class PairMySW : public Pair {
   int myStep = 0;
   int randomAtom;
   bool writeNeigh;
-  void makeDirectory(std::string name);
+  void makeDirectory();
 
   virtual void allocate();
   void read_file(char *);

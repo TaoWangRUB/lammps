@@ -714,12 +714,12 @@ void PairNNAngular2::compute(int eflag, int vflag)
         // apply 3-body symmetry
         for (int s=0; s < m_numberOfSymmFunc; s++)
           if ( m_parameters[s].size() == 4 ) 
-            inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
-                                   m_parameters[s][0], m_parameters[s][1], 
-                                   m_parameters[s][2], m_parameters[s][3]);
-            /*inputVector(0,s) += G5(rij, rik, cosTheta,
+            /*inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
                                    m_parameters[s][2], m_parameters[s][3]);*/
+            inputVector(0,s) += G5(rij, rik, cosTheta,
+                                   m_parameters[s][0], m_parameters[s][1], 
+                                   m_parameters[s][2], m_parameters[s][3]);
       }
 
       // skip if no triplets left
@@ -777,9 +777,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
     double fx3k = 0;
     double fy3k = 0;
     double fz3k = 0;
-
-    double dGjSum[] = {0, 0, 0};
-    double dGkSum[] = {0, 0, 0};
     
     // calculate forces by differentiating the symmetry functions
     // UNTRUE(?): dEdR(j) will be the force contribution from atom j on atom i
@@ -812,8 +809,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
           f[tagsj[l]][0] += fpair*drij(0,l);
           f[tagsj[l]][1] += fpair*drij(1,l);
           f[tagsj[l]][2] += fpair*drij(2,l);
-
-          if (i == 100000) cout << "2tagsj: " << tagsj[l] << endl;
 
           if (evflag) ev_tally_full(i, 0, 0, fpair,
                                     drij(0,l), drij(1,l), drij(2,l));
@@ -858,14 +853,14 @@ void PairNNAngular2::compute(int eflag, int vflag)
                   dGj, dGk);*/
 
 
-            /*dG5dR(drij(0,l), drij(1,l), drij(2,l),
+            dG5dR(drij(0,l), drij(1,l), drij(2,l),
                   driks[l](0,m), driks[l](1,m), driks[l](2,m),
                   Rij(0,l), Riks[l](0,m), cosThetas[l](0,m),
                   m_parameters[s][0], m_parameters[s][1], 
                   m_parameters[s][2], m_parameters[s][3], 
-                  dGj, dGk);*/
+                  dGj, dGk);
 
-            dG4dj(drij(0,l), drij(1,l), drij(2,l), 
+            /*dG4dj(drij(0,l), drij(1,l), drij(2,l), 
               driks[l](0,m), driks[l](1,m), driks[l](2,m), 
               Rij(0,l), Riks[l](0,m), Rjks[l](0,m), 
               cosThetas[l](0,m), m_parameters[s][0], 
@@ -877,7 +872,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
               Rij(0,l), Riks[l](0,m), Rjks[l](0,m), 
               cosThetas[l](0,m), m_parameters[s][0], 
               m_parameters[s][1], m_parameters[s][2], 
-              m_parameters[s][3], dGk);
+              m_parameters[s][3], dGk);*/
 
             /*dG5dj(drij(0,l), drij(1,l), drij(2,l), 
               driks[l](0,m), driks[l](1,m), driks[l](2,m), 
@@ -890,15 +885,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
               Rij(0,l), Riks[l](0,m), cosThetas[l](0,m), 
               m_parameters[s][0], m_parameters[s][1], 
               m_parameters[s][2], m_parameters[s][3], dGk);*/
-
-            if (l == 0) {
-              dGjSum[0] += dGj[0];
-              dGjSum[1] += dGj[1];
-              dGjSum[2] += dGj[2];
-              dGkSum[0] += dGk[0];
-              dGkSum[1] += dGk[1];
-              dGkSum[2] += dGk[2];
-            }
 
             fj3[0] = -dEdG(0,s) * dGj[0];
             fj3[1] = -dEdG(0,s) * dGj[1];
@@ -935,47 +921,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
           }
         }
       }
-    }
-
-    if (myStep == 0 && i == 2) {
-      out2.open("Tests/Gderivative/sympyConfigsG4.txt");
-      for (int l=0; l < neighbours; l++)
-        out2 << std::setprecision(18) << drij(0,l) << " " << drij(1,l) <<
-        " " << drij(2,l) << " ";
-      out2 << endl;
-      out2.close();
-
-      out.open("Tests/Gderivative/sympyDerivativesG4.txt");
-      out << std::setprecision(18) << dGjSum[0] << " " << dGjSum[1] << " " <<
-      dGjSum[2] << endl;
-      out << std::setprecision(18) << dGkSum[0] << " " << dGkSum[1] << " " << 
-      dGkSum[2] << endl;
-      out.close();
-
-      /*cout << std::setprecision(18) << dGjSum[0] << " " << dGjSum[1] << " " <<
-      dGjSum[2] << endl;
-      cout << std::setprecision(18) << dGkSum[0] << " " << dGkSum[1] << " " << 
-      dGkSum[2] << endl;*/
-    }
-    else if (!(myStep % 1000) && i == 2) {
-      out2.open("Tests/Gderivative/sympyConfigsG4.txt", std::ios::app);
-      for (int l=0; l < neighbours; l++)
-        out2 << std::setprecision(18) << drij(0,l) << " " << drij(1,l) <<
-        " " << drij(2,l) << " ";
-      out2 << endl;
-      out2.close();
-
-      out.open("Tests/Gderivative/sympyDerivativesG4.txt", std::ios::app);
-      out << std::setprecision(18) << dGjSum[0] << " " << dGjSum[1] << " " <<
-      dGjSum[2] << endl;
-      out << std::setprecision(18) << dGkSum[0] << " " << dGkSum[1] << " " << 
-      dGkSum[2] << endl;
-      out.close();
-
-      /*cout << std::setprecision(18) << dGjSum[0] << " " << dGjSum[1] << " " <<
-      dGjSum[2] << endl;
-      cout << std::setprecision(18) << dGkSum[0] << " " << dGkSum[1] << " " << 
-      dGkSum[2] << endl;*/
     }
 
     // update forces
