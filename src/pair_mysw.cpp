@@ -328,37 +328,7 @@ void PairMySW::allocate()
 
 void PairMySW::makeDirectory() 
 {
-  // make new folder named current time
-  /*time_t rawtime;
-  struct tm *timeinfo;
-  char buffer [15];
-
-  time (&rawtime);
-  timeinfo = localtime (&rawtime);
-
-  strftime (buffer,15,"%d.%m-%H.%M.%S", timeinfo);
-  std::string dateDir(buffer);
-  dirName = "Data/" + name + '/' + dateDir;*/
-
   filename = "Data/TrainingData/neighbours.txt";
-
-  /*std::string command = "mkdir " + dirName;
-  if ( system(command.c_str()) ) 
-    std::cout << "Could not make directory" << std::endl;
-  filename = dirName + "/neighbours.txt";
-  std::cout << "DIRNAME : " << dirName << std::endl;
-  std::cout << "FILENAME: " << filename << std::endl;
-
-  // copy input script potential file and log to folder for reference
-  cout << list->inum << endl;
-  if (1 < 8) command = "cp singleSwSi.in " + dirName;
-  else command = "cp swSi.in " + dirName;
-  if ( system(command.c_str()) ) 
-      std::cout << "Could not copy input script" << std::endl;
-
-  command = "cp ../../lammps/src/pair_mysw.cpp " + dirName;
-  if ( system(command.c_str()) ) 
-    std::cout << "Could not copy lammps script" << std::endl;*/
 
   // trying to open file, check if file successfully opened
   outfile.open(filename.c_str());

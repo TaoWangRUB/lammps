@@ -63,18 +63,13 @@ class PairMyVashishta : public Pair {
   // EDIT
   void makeDirectory();
 
-  std::string filename1Pairs;   // 1: Si, 2: O
-  std::string filename2Pairs;
-  std::string filename1Triplets;
-  std::string filename2Triplets; 
+  std::string filename0;   // 0: Si, 1: O2
+  std::string filename1;
 
-  std::string dirName;     // date
-
-  std::ofstream outfiles[4];
+  std::ofstream outfiles[2];
 
   int myStep = 0;
   int randomAtom;
-
 
 
   void allocate();

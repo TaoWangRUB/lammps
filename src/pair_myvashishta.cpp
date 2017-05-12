@@ -231,18 +231,12 @@ void PairMyVashishta::compute(int eflag, int vflag)
     f[i][1] += fytmp;
     f[i][2] += fztmp;
   }
-    
-
 
   if (vflag_fdotr) virial_fdotr_compute();
 
-
-
+  // EDIT
   // write neighbour lists every 100 steps
-  //if ( !(myStep % 10) ) {
-  if ( myStep == 0) {
-
-    int files[2];
+  if ( !(myStep % 1) ) {
 
     // calculate energies manually, not eatom[i]
     double energy = 0;
@@ -253,15 +247,11 @@ void PairMyVashishta::compute(int eflag, int vflag)
       i = ilist[ii];
       itype = map[type[i]];
 
-      if (!itype) {
-        outfiles[0].open(filename1Pairs.c_str(), std::ios::app);
-        outfiles[1].open(filename1Triplets.c_str(), std::ios::app);
-        files[0] = 0; files[1] = 1;
+      if (itype == 0) {
+        outfiles[0].open(filename0.c_str(), std::ios::app);
       }
       else { 
-        outfiles[2].open(filename2Pairs.c_str(), std::ios::app);
-        outfiles[3].open(filename2Triplets.c_str(), std::ios::app);
-        files[0] = 2; files[1] = 3;
+        outfiles[1].open(filename1.c_str(), std::ios::app);
       }
 
       double xi = x[i][0];
@@ -283,35 +273,27 @@ void PairMyVashishta::compute(int eflag, int vflag)
         jtag = tag[j];
         jtype = map[type[j]];
 
-        delx = xi - x[j][0];
-        dely = yi - x[j][1];
-        delz = zi - x[j][2];
+        delr1[0] = x[j][0] - xi;
+        delr1[1] = x[j][1] - yi;
+        delr1[2] = x[j][2] - zi;
 
-        rsq1 = delx*delx + dely*dely + delz*delz;
+        rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
         
-        /*ijparam = elem2param[itype][jtype][jtype];
-        std::cout << "itype: " << itype << "jtype: " << jtype << std::endl;
-        std::cout << "pair: " << params[ijparam].cutsq << std::endl;
-        std::cout << "trip: " << params[ijparam].cutsq2 << std::endl;
-        std::cout << std::endl;*/  
+        ijparam = elem2param[itype][jtype][jtype];
   
         // pair cut
-        if (rsq >= params[ijparam].cutsq) continue;
+        if (rsq1 >= params[ijparam].cutsq) continue;
 
         twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
         energy += evdwl/2;
 
-        // write to pair file
-        outfiles[files[0]] << std::setprecision(17) << delx << " " 
-        << dely << " " <<
-        delz << " " << rsq1 << " " << jtype << " ";
+        // write relative coordinates to file
+        // check triplet cuts when making symmetry later
+        outfiles[itype] << std::setprecision(17) << delx << " " 
+        << dely << " " << delz << " " << rsq1 << " " << jtype << " ";
 
         // triplet cut
-        if (rsq >= params[ijparam].cutsq2) continue;
-
-        outfiles[files[1]] << std::setprecision(17) << delx << " " 
-        << dely << " " <<
-        delz << " " << rsq1 << " " << jtype << " ";
+        if (rsq1 >= params[ijparam].cutsq2) continue;
 
         for (kk = jj+1; kk < jnum; kk++) {
           k = jlist[kk];
@@ -319,81 +301,44 @@ void PairMyVashishta::compute(int eflag, int vflag)
           ikparam = elem2param[itype][ktype][ktype];
           ijkparam = elem2param[itype][jtype][ktype];
 
-          delr2[0] = x[k][0] - xtmp;
-          delr2[1] = x[k][1] - ytmp;
-          delr2[2] = x[k][2] - ztmp;
+          delr2[0] = x[k][0] - xi;
+          delr2[1] = x[k][1] - yi;
+          delr2[2] = x[k][2] - zi;
           rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
+
           if (rsq2 >= params[ikparam].cutsq2) continue;
 
           threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                     rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
-          energy += evdwl/3;
+          energy += evdwl;
         }
       }
 
       // store energy
-      outfiles[files[0]] << std::setprecision(17) << energy << std::endl;
+      outfiles[itype] << std::setprecision(17) << energy << std::endl;
     }
-    outfiles[files[0]].close();
-    outfiles[files[1]].close();
+    outfiles[itype].close();
   }
   myStep++;
-  exit(1);
 }
 
 /* ---------------------------------------------------------------------- */
 
 void PairMyVashishta::makeDirectory() 
 {
-  // make new folder named current time
-  time_t rawtime;
-  struct tm * timeinfo;
-  char buffer [15];
-
-  time (&rawtime);
-  timeinfo = localtime (&rawtime);
-
-  strftime (buffer,15,"%d.%m-%H.%M.%S", timeinfo);
-  std::string str(buffer);
-  dirName = "Data/" + str;
-
-  std::string command = "mkdir " + dirName;
-  if ( system(command.c_str()) ) 
-    std::cout << "Could not make directory" << std::endl;
-  filename1Pairs = dirName + "/1Pairs.txt";
-  filename2Pairs = dirName + "/2Pairs.txt";
-  filename1Triplets = dirName + "/1Triplets.txt";
-  filename2Triplets = dirName + "/2Triplets.txt";
-  std::cout << "DIRNAME : " << dirName << std::endl;
-
-  // copy input script and potential file to folder for reference
-  command = "cp vashishta.SiO2.in " + dirName;
-  if ( system(command.c_str()) ) 
-    std::cout << "Could not copy input script" << std::endl;
-  command = "cp ../../lammps/src/pair_myvashishta.cpp " + dirName;
-  if ( system(command.c_str()) ) 
-    std::cout << "Could not copy lammps script" << std::endl;
+  filename0 = "Data/TrainingData/neighbours0.txt";
+  filename1 = "Data/TrainingData/neighbours1.txt";
 
   // trying to open files, check if file successfully opened
-  outfiles[0].open(filename1Pairs.c_str());
+  outfiles[0].open(filename0.c_str());
   if ( !outfiles[0].is_open() ) 
     std::cout << "File is not opened" << std::endl;
   outfiles[0].close();
 
-  outfiles[1].open(filename1Triplets.c_str());
+  outfiles[1].open(filename1.c_str());
   if ( !outfiles[1].is_open() ) 
     std::cout << "File is not opened" << std::endl;
   outfiles[1].close();
-
-  outfiles[2].open(filename2Pairs.c_str());
-  if ( !outfiles[2].is_open() ) 
-    std::cout << "File is not opened" << std::endl;
-  outfiles[2].close();
-
-  outfiles[3].open(filename2Triplets.c_str());
-  if ( !outfiles[3].is_open() ) 
-    std::cout << "File is not opened" << std::endl;
-  outfiles[3].close();
 }
 
 /* ---------------------------------------------------------------------- */
