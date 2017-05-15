@@ -289,8 +289,8 @@ void PairMyVashishta::compute(int eflag, int vflag)
 
         // write relative coordinates to file
         // check triplet cuts when making symmetry later
-        outfiles[itype] << std::setprecision(17) << delx << " " 
-        << dely << " " << delz << " " << rsq1 << " " << jtype << " ";
+        outfiles[itype] << std::setprecision(17) << delr1[0] << " " 
+        << delr1[1] << " " << delr1[2] << " " << rsq1 << " " << jtype << " ";
 
         // triplet cut
         if (rsq1 >= params[ijparam].cutsq2) continue;
