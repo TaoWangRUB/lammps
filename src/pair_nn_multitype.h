@@ -122,6 +122,9 @@ class PairNNMultiType : public Pair {
   std::vector<int> m_numberOfSymmFunc;
   std::vector<int> m_numberOfParameters;
 
+  std::map< std::pair<int,int>, std::pair<int,int> > elem2param2;
+  std::map< std::tuple<int,int,int>, std::pair<int,int> > elem2param3;
+
   const double m_pi = arma::datum::pi;
   int myStep = 0;
 

@@ -32,6 +32,8 @@
 #include "memory.h"
 #include "error.h"
 #include <fenv.h>
+#include <map>
+#include <tuple>
 
 #include <fstream>
 #include <iomanip>
@@ -83,7 +85,7 @@ PairNNMultiType::~PairNNMultiType()
 /* ---------------------------------------------------------------------- */
 
 double PairNNMultiType::network(arma::mat inputVector, int type) {
-    // inputGraph vector is a 1 x inputs vector
+    // inputVector has size 1 x inputs
 
     // linear activation for inputlayer
     m_preActivations[type][0] = inputVector;
@@ -548,7 +550,7 @@ void PairNNMultiType::compute(int eflag, int vflag)
     int i = ilist[ii];
     tagint itag = tag[i];
     int itype = map[type[i]];
-    cout << "itype: " << itype << endl;
+    if (i == 307) cout << "itype: " << itype << endl;
 
     double xtmp = x[i][0];
     double ytmp = x[i][1];
@@ -589,7 +591,7 @@ void PairNNMultiType::compute(int eflag, int vflag)
       j &= NEIGHMASK;
       tagint jtag = tag[j];
       int jtype = map[type[j]];
-      cout << "jtype: " << jtype << endl;
+      if (i == 307) cout << "jtype: " << jtype << endl;
 
       double delxj = x[j][0] - xtmp;
       double delyj = x[j][1] - ytmp;
@@ -611,7 +613,12 @@ void PairNNMultiType::compute(int eflag, int vflag)
       typesk.push_back(std::vector<int>());
 
       // apply 2-body symmetry
-      for (int s=0; s < m_numberOfSymmFunc[itype]; s++)
+      int a, b, n;
+      std::tie(a, b) = elem2param2[std::make_pair(itype,jtype)];
+      n = b - a;
+      arma::ivec rangeList = arma::linspace<arma::ivec>(a, b-1, n);
+      if (i == 307) cout << rangeList << endl;
+      for (auto s : rangeList)
         if ( m_parameters[itype][s].size() == 3 ) 
           inputVector(0,s) += G2(rij, m_parameters[itype][s][0],
                                       m_parameters[itype][s][1], 
@@ -634,8 +641,8 @@ void PairNNMultiType::compute(int eflag, int vflag)
         k &= NEIGHMASK;
         tagint ktag = tag[k];
         int ktype = map[type[k]];
-        cout << "ktype: " << ktype << endl;
-        cout << endl;
+        if (i == 307) {cout << "ktype: " << ktype << endl;
+        cout << endl;}
 
         double delxk = x[k][0] - xtmp;
         double delyk = x[k][1] - ytmp;
@@ -644,7 +651,7 @@ void PairNNMultiType::compute(int eflag, int vflag)
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
         if (rsq2 >= 2.6*2.6) continue;
-        cout << "yes" << endl;
+        if (i == 307) cout << "yes" << endl;
         
         // calculate quantites needed in G4/G5
         double rik = sqrt(rsq2);
@@ -674,7 +681,11 @@ void PairNNMultiType::compute(int eflag, int vflag)
         neighk++;
 
         // apply 3-body symmetry
-        for (int s=0; s < m_numberOfSymmFunc[itype]; s++)
+        std::tie(a, b) = elem2param3[std::make_tuple(itype,jtype,ktype)];
+        n = b - a;
+        arma::ivec rangeList = arma::linspace<arma::ivec>(a, b-1, n);
+        if (i == 307) cout << "3: " << rangeList << endl;
+        for (auto s : rangeList)
           if ( m_parameters[itype][s].size() == 4 ) 
             /*inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
@@ -720,9 +731,6 @@ void PairNNMultiType::compute(int eflag, int vflag)
         cout << "Negative input value: " << inputValue << endl;
     }
 
-    cout << inputVector << endl;
-    exit(1);
-
     // apply NN to get energy
     evdwl = network(inputVector, itype);
 
@@ -733,6 +741,13 @@ void PairNNMultiType::compute(int eflag, int vflag)
 
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation(itype);
+
+    if (i == 307) {
+      cout << std::setprecision(17) << endl;
+      inputVector.raw_print(cout);
+      cout << std::setprecision(17) << "energy: " << evdwl << endl;
+      dEdG.raw_print(cout);
+    }
 
     double fx2 = 0;
     double fy2 = 0;
@@ -746,7 +761,6 @@ void PairNNMultiType::compute(int eflag, int vflag)
     double fz3k = 0;
     
     // calculate forces by differentiating the symmetry functions
-    // UNTRUE(?): dEdR(j) will be the force contribution from atom j on atom i
     for (int s=0; s < m_numberOfSymmFunc[itype]; s++) {
       
       // G2: one atomic pair environment per symmetry function
@@ -1178,11 +1192,40 @@ void PairNNMultiType::read_file(char *file, int type)
   // skip blank line
   std::getline(inputParameters, dummyLine);
 
+  // make mapping from element to parameter indicies
+
+  // G2
+  int nTypes = atom->ntypes;
+  std::vector<std::pair<int,int>> pairs(nTypes);
+  for (int j=0; j < nTypes; j++)
+    pairs[j] = std::make_pair(type,j);
+
+  // G4
+  std::vector<std::tuple<int,int,int>> triplets;
+  for (int j=0; j < nTypes; j++)
+    for (int k=0; k < nTypes; k++)
+      triplets.push_back(std::make_tuple(type,j,k));
+
+  int sOld = 0;
+  int sNew = 0;
   int i = 0;
   for ( std::string line; std::getline(inputParameters, line); ) {
 
-    if ( line.empty() )
+    if ( line.empty() ) {
+      if (i < nTypes)
+        elem2param2[std::make_pair(std::get<0>(pairs[i]), std::get<1>(pairs[i]))] = 
+          std::make_pair(sOld,sNew);
+      else {
+        int i3 = i - nTypes;
+        elem2param3[std::make_tuple(std::get<0>(triplets[i3]), 
+                           std::get<1>(triplets[i3]), 
+                           std::get<2>(triplets[i3]))] = 
+          std::make_pair(sOld,sNew);
+      }
+      sOld = sNew;
+      i++;
       continue;
+    }
 
     double buffer;                  // have a buffer string
     std::stringstream ss(line);     // insert the string into a stream
@@ -1190,9 +1233,9 @@ void PairNNMultiType::read_file(char *file, int type)
     // while there are new parameters on current line, add them to matrix
     m_parameters[type].resize(m_numberOfSymmFunc[type]); 
     while ( ss >> buffer ) {
-        m_parameters[type][i].push_back(buffer);
+        m_parameters[type][sNew].push_back(buffer);
     }
-    i++;
+    sNew++;
   }
   inputParameters.close();
   std::cout << "Parameters file read......" << std::endl;
@@ -1208,4 +1251,18 @@ void PairNNMultiType::read_file(char *file, int type)
         cout << endl;
       }
   } 
+
+  cout << std::get<0>(elem2param2[std::make_pair(type,0)]) << endl;
+  cout << std::get<1>(elem2param2[std::make_pair(type,0)]) << endl;
+  cout << std::get<0>(elem2param2[std::make_pair(type,1)]) << endl;
+  cout << std::get<1>(elem2param2[std::make_pair(type,1)]) << endl;
+
+  cout << std::get<0>(elem2param3[std::make_tuple(type,0,0)]) << endl;
+  cout << std::get<1>(elem2param3[std::make_tuple(type,0,0)]) << endl;
+  cout << std::get<0>(elem2param3[std::make_tuple(type,0,1)]) << endl;
+  cout << std::get<1>(elem2param3[std::make_tuple(type,0,1)]) << endl;
+  cout << std::get<0>(elem2param3[std::make_tuple(type,1,0)]) << endl;
+  cout << std::get<1>(elem2param3[std::make_tuple(type,1,0)]) << endl;
+  cout << std::get<0>(elem2param3[std::make_tuple(type,1,1)]) << endl;
+  cout << std::get<1>(elem2param3[std::make_tuple(type,1,1)]) << endl;
 }

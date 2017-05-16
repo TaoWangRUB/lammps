@@ -236,14 +236,16 @@ void PairMyVashishta::compute(int eflag, int vflag)
 
   // EDIT
   // write neighbour lists every 100 steps
-  if ( !(myStep % 1) ) {
+  if ( !(myStep % 10) ) {
 
     // calculate energies manually, not eatom[i]
     double energy = 0;
 
     // decide number of samples for each time step
-    int chosenAtoms[] = {307, 309};
-    for (int ii : chosenAtoms) {
+    int chosenAtoms[] = {1, 6};
+    //int chosenAtoms[] = {0, 1};
+    //for (int ii : chosenAtoms) {
+    for (int i=0; i < inum; i++) {
       i = ilist[ii];
       itype = map[type[i]];
 
@@ -262,7 +264,7 @@ void PairMyVashishta::compute(int eflag, int vflag)
       if (myStep == 0) {
         std::cout << "Chosen atom: "
         << i << " " << itype << " " << xi << " " << yi << " " 
-        << zi << " " << std::endl;
+        << zi << " " << std::endl;  
       }
 
       jlist = firstneigh[i];
