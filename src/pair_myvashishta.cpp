@@ -242,10 +242,10 @@ void PairMyVashishta::compute(int eflag, int vflag)
     double energy = 0;
 
     // decide number of samples for each time step
-    int chosenAtoms[] = {1, 6};
-    //int chosenAtoms[] = {0, 1};
-    //for (int ii : chosenAtoms) {
-    for (int i=0; i < inum; i++) {
+    //int chosenAtoms[] = {1, 6};
+    int chosenAtoms[] = {307, 309};
+    for (int ii : chosenAtoms) {
+    //for (int i=0; i < inum; i++) {
       i = ilist[ii];
       itype = map[type[i]];
 
@@ -318,8 +318,8 @@ void PairMyVashishta::compute(int eflag, int vflag)
 
       // store energy
       outfiles[itype] << std::setprecision(17) << energy << std::endl;
-    }
-    outfiles[itype].close();
+      outfiles[itype].close();
+    }   
   }
   myStep++;
 }
