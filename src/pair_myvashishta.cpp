@@ -238,16 +238,16 @@ void PairMyVashishta::compute(int eflag, int vflag)
   // write neighbour lists every 100 steps
   if ( !(myStep % 10) ) {
 
-    // calculate energies manually, not eatom[i]
-    double energy = 0;
-
     // decide number of samples for each time step
     //int chosenAtoms[] = {1, 6};
     int chosenAtoms[] = {307, 309};
-    for (int ii : chosenAtoms) {
-    //for (int i=0; i < inum; i++) {
+    //for (int ii : chosenAtoms) {
+    for (int i=0; i < inum; i++) {
       i = ilist[ii];
       itype = map[type[i]];
+
+      // calculate energies manually, not eatom[i]
+      double energy = 0;
 
       if (itype == 0) {
         outfiles[0].open(filename0.c_str(), std::ios::app);
@@ -309,6 +309,7 @@ void PairMyVashishta::compute(int eflag, int vflag)
           rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
 
           if (rsq2 >= params[ikparam].cutsq2) continue;
+          cout << itype << " " << jtype << " " << ktype << endl;
 
           threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                     rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);

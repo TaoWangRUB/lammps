@@ -550,7 +550,6 @@ void PairNNMultiType::compute(int eflag, int vflag)
     int i = ilist[ii];
     tagint itag = tag[i];
     int itype = map[type[i]];
-    if (i == 307) cout << "itype: " << itype << endl;
 
     double xtmp = x[i][0];
     double ytmp = x[i][1];
@@ -591,7 +590,6 @@ void PairNNMultiType::compute(int eflag, int vflag)
       j &= NEIGHMASK;
       tagint jtag = tag[j];
       int jtype = map[type[j]];
-      if (i == 307) cout << "jtype: " << jtype << endl;
 
       double delxj = x[j][0] - xtmp;
       double delyj = x[j][1] - ytmp;
@@ -616,9 +614,8 @@ void PairNNMultiType::compute(int eflag, int vflag)
       int a, b, n;
       std::tie(a, b) = elem2param2[std::make_pair(itype,jtype)];
       n = b - a;
-      arma::ivec rangeList = arma::linspace<arma::ivec>(a, b-1, n);
-      if (i == 307) cout << rangeList << endl;
-      for (auto s : rangeList)
+      arma::ivec rangeList2 = arma::linspace<arma::ivec>(a, b-1, n);
+      for (auto s : rangeList2)
         if ( m_parameters[itype][s].size() == 3 ) 
           inputVector(0,s) += G2(rij, m_parameters[itype][s][0],
                                       m_parameters[itype][s][1], 
@@ -641,8 +638,6 @@ void PairNNMultiType::compute(int eflag, int vflag)
         k &= NEIGHMASK;
         tagint ktag = tag[k];
         int ktype = map[type[k]];
-        if (i == 307) {cout << "ktype: " << ktype << endl;
-        cout << endl;}
 
         double delxk = x[k][0] - xtmp;
         double delyk = x[k][1] - ytmp;
@@ -651,7 +646,6 @@ void PairNNMultiType::compute(int eflag, int vflag)
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
         if (rsq2 >= 2.6*2.6) continue;
-        if (i == 307) cout << "yes" << endl;
         
         // calculate quantites needed in G4/G5
         double rik = sqrt(rsq2);
@@ -683,9 +677,8 @@ void PairNNMultiType::compute(int eflag, int vflag)
         // apply 3-body symmetry
         std::tie(a, b) = elem2param3[std::make_tuple(itype,jtype,ktype)];
         n = b - a;
-        arma::ivec rangeList = arma::linspace<arma::ivec>(a, b-1, n);
-        if (i == 307) cout << "3: " << rangeList << endl;
-        for (auto s : rangeList)
+        arma::ivec rangeList3 = arma::linspace<arma::ivec>(a, b-1, n);
+        for (auto s : rangeList3)
           if ( m_parameters[itype][s].size() == 4 ) 
             /*inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
@@ -742,12 +735,13 @@ void PairNNMultiType::compute(int eflag, int vflag)
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation(itype);
 
-    if (i == 307) {
+    /*if (i == 307) {
       cout << std::setprecision(17) << endl;
       inputVector.raw_print(cout);
       cout << std::setprecision(17) << "energy: " << evdwl << endl;
       dEdG.raw_print(cout);
-    }
+      exit(1);
+    }*/
 
     double fx2 = 0;
     double fy2 = 0;
