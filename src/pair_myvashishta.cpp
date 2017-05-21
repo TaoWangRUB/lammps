@@ -242,7 +242,7 @@ void PairMyVashishta::compute(int eflag, int vflag)
     //int chosenAtoms[] = {1, 6};
     int chosenAtoms[] = {307, 309};
     //for (int ii : chosenAtoms) {
-    for (int i=0; i < inum; i++) {
+    for (int ii=0; ii < inum; ii++) {
       i = ilist[ii];
       itype = map[type[i]];
 
@@ -261,11 +261,11 @@ void PairMyVashishta::compute(int eflag, int vflag)
       double zi = x[i][2];
 
       // write out coordinates of chosen atoms
-      if (myStep == 0) {
+      /*if (myStep == 0) {
         std::cout << "Chosen atom: "
         << i << " " << itype << " " << xi << " " << yi << " " 
         << zi << " " << std::endl;  
-      }
+      }*/
 
       jlist = firstneigh[i];
       jnum = numneigh[i];
@@ -309,7 +309,6 @@ void PairMyVashishta::compute(int eflag, int vflag)
           rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
 
           if (rsq2 >= params[ikparam].cutsq2) continue;
-          cout << itype << " " << jtype << " " << ktype << endl;
 
           threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                     rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);

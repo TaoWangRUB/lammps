@@ -621,7 +621,10 @@ void PairNNMultiType::compute(int eflag, int vflag)
                                       m_parameters[itype][s][1], 
                                       m_parameters[itype][s][2]);
 
-      if (rsq1 >= 2.6*2.6) continue;
+      if (rsq1 >= 2.6*2.6) {
+        neighbours++;
+        continue;
+      }
 
       // collect triplets for this (i,j)
       arma::mat Rik(1, jnum);
@@ -735,13 +738,15 @@ void PairNNMultiType::compute(int eflag, int vflag)
     // backpropagate to obtain gradient of NN
     arma::mat dEdG = backPropagation(itype);
 
-    /*if (i == 307) {
+    if (myStep >= 110000) {
       cout << std::setprecision(17) << endl;
+      cout << "itype: " << i << endl;
       inputVector.raw_print(cout);
       cout << std::setprecision(17) << "energy: " << evdwl << endl;
       dEdG.raw_print(cout);
-      exit(1);
-    }*/
+      cout << Rij << endl;
+      if (myStep == 40) exit(1);
+    }
 
     double fx2 = 0;
     double fy2 = 0;
@@ -1233,9 +1238,6 @@ void PairNNMultiType::read_file(char *file, int type)
   }
   inputParameters.close();
   std::cout << "Parameters file read......" << std::endl;
-
-  cout << m_weights[type][2] << endl;
-  cout << m_biases[type][2] << endl;
 
   if (type == 1) {
     for (auto i: m_parameters)
