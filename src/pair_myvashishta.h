@@ -47,6 +47,7 @@ class PairMyVashishta : public Pair {
     double lam1rc,lam4rc,vrcc2,vrcc3,vrc,dvrc,c0;
     int ielement,jelement,kelement;
   };
+
  protected:
   double cutmax;                // max cutoff for all elements
   int nelements;                // # of unique elements

@@ -525,7 +525,6 @@ void PairNNMultiType::compute(int eflag, int vflag)
   //feenableexcept(FE_INVALID | FE_OVERFLOW);
 
   double evdwl = 0.0;
-  eng_vdwl = 0.0;
   if (eflag || vflag) ev_setup(eflag,vflag);
   else evflag = vflag_fdotr = 0;
 
@@ -543,7 +542,6 @@ void PairNNMultiType::compute(int eflag, int vflag)
 
   double fxtmp,fytmp,fztmp;
 
-  int ghosts = 0;
   // loop over full neighbor list of my atoms
   for (int ii = 0; ii < inum; ii++) {
     

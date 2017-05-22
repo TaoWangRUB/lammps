@@ -236,36 +236,27 @@ void PairMyVashishta::compute(int eflag, int vflag)
 
   // EDIT
   // write neighbour lists every 100 steps
-  if ( !(myStep % 10) ) {
+  if ( !(myStep % 1) ) {
 
-    // decide number of samples for each time step
-    //int chosenAtoms[] = {1, 6};
-    int chosenAtoms[] = {307, 309};
-    //for (int ii : chosenAtoms) {
-    for (int ii=0; ii < inum; ii++) {
+    int chosenCount = 0;
+    for (int ii : chosenAtoms) {
       i = ilist[ii];
       itype = map[type[i]];
+      itag = tag[i];
 
       // calculate energies manually, not eatom[i]
       double energy = 0;
-
-      if (itype == 0) {
-        outfiles[0].open(filename0.c_str(), std::ios::app);
-      }
-      else { 
-        outfiles[1].open(filename1.c_str(), std::ios::app);
-      }
 
       double xi = x[i][0];
       double yi = x[i][1];
       double zi = x[i][2];
 
       // write out coordinates of chosen atoms
-      /*if (myStep == 0) {
+      if (myStep == 0) {
         std::cout << "Chosen atom: "
         << i << " " << itype << " " << xi << " " << yi << " " 
         << zi << " " << std::endl;  
-      }*/
+      }
 
       jlist = firstneigh[i];
       jnum = numneigh[i];
@@ -287,12 +278,7 @@ void PairMyVashishta::compute(int eflag, int vflag)
         if (rsq1 >= params[ijparam].cutsq) continue;
 
         twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
-        energy += evdwl/2;
-
-        // write relative coordinates to file
-        // check triplet cuts when making symmetry later
-        outfiles[itype] << std::setprecision(17) << delr1[0] << " " 
-        << delr1[1] << " " << delr1[2] << " " << rsq1 << " " << jtype << " ";
+        energy += evdwl/2.0;
 
         // triplet cut
         if (rsq1 >= params[ijparam].cutsq2) continue;
@@ -317,8 +303,8 @@ void PairMyVashishta::compute(int eflag, int vflag)
       }
 
       // store energy
-      outfiles[itype] << std::setprecision(17) << energy << std::endl;
-      outfiles[itype].close();
+      dumpEnergies[chosenCount] = energy;
+      chosenCount++;
     }   
   }
   myStep++;
@@ -390,7 +376,16 @@ void PairMyVashishta::coeff(int narg, char **arg)
   // elements = list of element names
 
   // EDIT
-  makeDirectory();
+  //makeDirectory();
+
+  // decide number of samples for each time step
+  int nChosenAtoms = 2;
+  dumpEnergies.resize(nChosenAtoms);
+  chosenAtoms.resize(nChosenAtoms);
+  chosenAtoms[0] = 307;
+  chosenAtoms[1] = 309;
+
+
 
   if (elements) {
     for (i = 0; i < nelements; i++) delete [] elements[i];

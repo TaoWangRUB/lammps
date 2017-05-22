@@ -364,7 +364,7 @@ void PairMySW::coeff(int narg, char **arg)
     std::string name = arg[narg-1];
     narg--;
     writeNeigh = 1;
-    makeDirectory();
+    //makeDirectory();
   }
 
   // insure I,J args are * *

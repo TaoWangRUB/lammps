@@ -22,6 +22,10 @@ ComputeStyle(neigh,ComputeNeigh)
 
 #include "compute.h"
 
+#include <fstream>
+#include <string>
+#include <vector>
+
 namespace LAMMPS_NS {
 
 class ComputeNeigh : public Compute {
@@ -29,10 +33,20 @@ class ComputeNeigh : public Compute {
   ComputeNeigh(class LAMMPS *, int, char **);
   void init();
   double compute_scalar();
-  class NeighList *list;         // standard neighbor list used by most pairs
+  void init_list(int, class NeighList *);
 
  private:
   int myStep = 0;
+  std::vector<int> chosenAtoms;
+  std::string filename0;   // 0: Si, 1: O2
+  std::string filename1;
+  std::vector<double> alpha;
+  std::vector<int> tau;
+  int nTypes;
+
+  std::ofstream outfiles[2];
+
+  class NeighList *list;         // standard neighbor list used by most pairs
 };
 
 }

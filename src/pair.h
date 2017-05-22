@@ -16,6 +16,7 @@
 
 #include "pointers.h"
 #include "accelerator_kokkos.h"
+#include <vector>
 
 namespace LAMMPS_NS {
 
@@ -100,6 +101,10 @@ class Pair : protected Pointers {
   int allocated;                 // 0/1 = whether arrays are allocated
                                  //       public so external driver can check
   int compute_flag;              // 0 if skip compute()
+
+  // EDIT 
+  std::vector<double> dumpEnergies;
+  std::vector<int> chosenAtoms;
 
   // KOKKOS host/device flag and data masks
 
