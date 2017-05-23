@@ -70,14 +70,23 @@ void ComputeNeigh::init()
   nTypes = atom->ntypes;
 
   alpha.resize(nTypes);
-  alpha[0] = 3.0; alpha[1] = 3.0;
+  alpha[0] = 4.0; alpha[1] = 4.0;
 
   tau.resize(nTypes);
   for (int i=0; i < nTypes; i++)
-    tau[i] = 1;
+    tau[i] = 0;
 
   filename0 = "Data/TrainingData/neighbours0.txt";
   filename1 = "Data/TrainingData/neighbours1.txt";
+
+  // create filenames
+  char buffer[20];
+  sprintf(buffer, "%1.1f.txt", alpha[0]);
+  std::string name(buffer);
+  filenameTau = "tmp/tau" + name;
+  filenameStep = "tmp/step" + name;
+  cout << filenameTau << endl;
+  cout << filenameStep << endl;
 
   // trying to open files, check if file successfully opened
   outfiles[0].open(filename0.c_str());
@@ -90,6 +99,17 @@ void ComputeNeigh::init()
     std::cout << "File is not opened" << std::endl;
   outfiles[1].close();
 
+  outTau.open(filenameTau);
+  if ( !outTau.is_open() ) 
+    std::cout << "File is not opened" << std::endl;
+  outTau.close();
+
+  outStep.open(filenameStep);
+  if ( !outStep.is_open() ) 
+    std::cout << "File is not opened" << std::endl;
+  outStep.close();
+
+  // request correct neighbour lists
   int irequest = neighbor->request(this,instance_me);
   neighbor->requests[irequest]->pair = 0;
   neighbor->requests[irequest]->half = 0;
@@ -134,17 +154,39 @@ double ComputeNeigh::compute_scalar()
   double **cutsq = force->pair->cutsq;
   std::vector<double> dumpEnergies = force->pair->dumpEnergies;
 
+  // write tau and step sampled to file
+  outTau.open(filenameTau, std::ios::app);
+  outTau << tau[0] << " " << tau[1] << endl;
+  outTau.close();
+
+  outStep.open(filenameStep, std::ios::app);
+  if (tau[0] == 0) outStep << 0 << " " << myStep << endl;
+  if (tau[1] == 0) outStep << 1 << " " << myStep << endl;
+  outStep.close();
+
+  // sample if tau = 1
   int counter = 0;
   for (ii : chosenAtoms) {
     i = ilist[ii];
     itype = type[i]-1;
 
-    if (tau[itype] > 1) continue;
+    if (tau[itype] > 0) {
+      sample = 0;
+      continue;
+    }
+    else sample = 1;
 
     double F = sqrt(f[i][0]*f[i][0] + f[i][1]*f[i][1] + f[i][2]*f[i][2]);
-    int factor = floor( alpha[itype] / F );
-    if (factor == 0) tau[itype] = 1;
-    else             tau[itype] *= factor;
+
+    // no delay if force is larger than alpha
+    if (F > alpha[itype]) tau[itype] = 0;
+
+    // calculate delay if force less than alpha
+    else {
+      int factor = floor( alpha[itype] / F );
+      //if (factor > 30) factor = 39;
+      tau[itype] = factor;
+    }
 
     if (itype == 0) outfiles[0].open(filename0.c_str(), std::ios::app);
     else            outfiles[1].open(filename1.c_str(), std::ios::app);
@@ -185,7 +227,9 @@ double ComputeNeigh::compute_scalar()
 
   // adjust sampling time interval
   for (int i=0; i < nTypes; i++)
-    tau[i] -= 1;
+    if (tau[i] > 0 && sample == 0) tau[i]--;
+
+  myStep++;
 
   scalar = 1;
   return scalar;

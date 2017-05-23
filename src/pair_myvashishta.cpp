@@ -235,78 +235,74 @@ void PairMyVashishta::compute(int eflag, int vflag)
   if (vflag_fdotr) virial_fdotr_compute();
 
   // EDIT
-  // write neighbour lists every 100 steps
-  if ( !(myStep % 1) ) {
+  int chosenCount = 0;
+  for (int ii : chosenAtoms) {
+    i = ilist[ii];
+    itype = map[type[i]];
+    itag = tag[i];
 
-    int chosenCount = 0;
-    for (int ii : chosenAtoms) {
-      i = ilist[ii];
-      itype = map[type[i]];
-      itag = tag[i];
+    // calculate energies manually, not eatom[i]
+    double energy = 0;
 
-      // calculate energies manually, not eatom[i]
-      double energy = 0;
+    double xi = x[i][0];
+    double yi = x[i][1];
+    double zi = x[i][2];
 
-      double xi = x[i][0];
-      double yi = x[i][1];
-      double zi = x[i][2];
+    // write out coordinates of chosen atoms
+    if (myStep == 0) {
+      std::cout << "Chosen atom: "
+      << i << " " << itype << " " << xi << " " << yi << " " 
+      << zi << " " << std::endl;  
+    }
 
-      // write out coordinates of chosen atoms
-      if (myStep == 0) {
-        std::cout << "Chosen atom: "
-        << i << " " << itype << " " << xi << " " << yi << " " 
-        << zi << " " << std::endl;  
+    jlist = firstneigh[i];
+    jnum = numneigh[i];
+    for (jj = 0; jj < jnum; jj++) {
+      j = jlist[jj];
+      j &= NEIGHMASK;
+      jtag = tag[j];
+      jtype = map[type[j]];
+
+      delr1[0] = x[j][0] - xi;
+      delr1[1] = x[j][1] - yi;
+      delr1[2] = x[j][2] - zi;
+
+      rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
+      
+      ijparam = elem2param[itype][jtype][jtype];
+
+      // pair cut
+      if (rsq1 >= params[ijparam].cutsq) continue;
+
+      twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
+      energy += evdwl/2.0;
+
+      // triplet cut
+      if (rsq1 >= params[ijparam].cutsq2) continue;
+
+      for (kk = jj+1; kk < jnum; kk++) {
+        k = jlist[kk];
+        ktype = map[type[k]];
+        ikparam = elem2param[itype][ktype][ktype];
+        ijkparam = elem2param[itype][jtype][ktype];
+
+        delr2[0] = x[k][0] - xi;
+        delr2[1] = x[k][1] - yi;
+        delr2[2] = x[k][2] - zi;
+        rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
+
+        if (rsq2 >= params[ikparam].cutsq2) continue;
+
+        threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
+                  rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
+        energy += evdwl;
       }
+    }
 
-      jlist = firstneigh[i];
-      jnum = numneigh[i];
-      for (jj = 0; jj < jnum; jj++) {
-        j = jlist[jj];
-        j &= NEIGHMASK;
-        jtag = tag[j];
-        jtype = map[type[j]];
-
-        delr1[0] = x[j][0] - xi;
-        delr1[1] = x[j][1] - yi;
-        delr1[2] = x[j][2] - zi;
-
-        rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
-        
-        ijparam = elem2param[itype][jtype][jtype];
-  
-        // pair cut
-        if (rsq1 >= params[ijparam].cutsq) continue;
-
-        twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
-        energy += evdwl/2.0;
-
-        // triplet cut
-        if (rsq1 >= params[ijparam].cutsq2) continue;
-
-        for (kk = jj+1; kk < jnum; kk++) {
-          k = jlist[kk];
-          ktype = map[type[k]];
-          ikparam = elem2param[itype][ktype][ktype];
-          ijkparam = elem2param[itype][jtype][ktype];
-
-          delr2[0] = x[k][0] - xi;
-          delr2[1] = x[k][1] - yi;
-          delr2[2] = x[k][2] - zi;
-          rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
-
-          if (rsq2 >= params[ikparam].cutsq2) continue;
-
-          threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
-                    rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
-          energy += evdwl;
-        }
-      }
-
-      // store energy
-      dumpEnergies[chosenCount] = energy;
-      chosenCount++;
-    }   
-  }
+    // store energy
+    dumpEnergies[chosenCount] = energy;
+    chosenCount++;
+  }   
   myStep++;
 }
 

@@ -45,6 +45,11 @@ class ComputeNeigh : public Compute {
   int nTypes;
 
   std::ofstream outfiles[2];
+  std::ofstream outTau;
+  std::ofstream outStep;
+  std::string filenameTau;
+  std::string filenameStep;
+  bool sample = 0;
 
   class NeighList *list;         // standard neighbor list used by most pairs
 };
