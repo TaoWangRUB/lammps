@@ -382,7 +382,6 @@ void PairMyVashishta::coeff(int narg, char **arg)
   chosenAtoms[1] = 309;
 
 
-
   if (elements) {
     for (i = 0; i < nelements; i++) delete [] elements[i];
     delete [] elements;

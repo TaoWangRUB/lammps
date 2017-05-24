@@ -43,13 +43,15 @@ class ComputeNeigh : public Compute {
   std::vector<double> alpha;
   std::vector<int> tau;
   int nTypes;
+  int maxFactor;
+  int nChosenAtoms;
 
   std::ofstream outfiles[2];
   std::ofstream outTau;
   std::ofstream outStep;
   std::string filenameTau;
   std::string filenameStep;
-  bool sample = 0;
+  std::vector<bool> sample;
 
   class NeighList *list;         // standard neighbor list used by most pairs
 };

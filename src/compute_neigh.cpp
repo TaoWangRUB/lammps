@@ -56,7 +56,14 @@ using std::endl;
 ComputeNeigh::ComputeNeigh(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg)
 {
-  if (narg != 3) error->all(FLERR,"Illegal compute ke command");
+  if (narg != 5 && narg != 6) error->all(FLERR,"Illegal compute neigh command");
+
+  nTypes = atom->ntypes;
+  alpha.resize(nTypes);
+  for (int i=0; i < nTypes; i++)
+    alpha[i] = atof(arg[3+i]);
+
+  maxFactor = atoi(arg[5]);
 
   scalar_flag = 1;
   extscalar = 1;
@@ -67,24 +74,27 @@ ComputeNeigh::ComputeNeigh(LAMMPS *lmp, int narg, char **arg) :
 void ComputeNeigh::init()
 {
   chosenAtoms = force->pair->chosenAtoms;
-  nTypes = atom->ntypes;
+  nChosenAtoms = chosenAtoms.size();
 
-  alpha.resize(nTypes);
-  alpha[0] = 4.0; alpha[1] = 4.0;
+  tau.resize(nChosenAtoms);
+  for (int t : tau) t = 0;
 
-  tau.resize(nTypes);
-  for (int i=0; i < nTypes; i++)
-    tau[i] = 0;
+  sample.resize(nChosenAtoms);
+  for (int s : sample) s = 0;
 
   filename0 = "Data/TrainingData/neighbours0.txt";
   filename1 = "Data/TrainingData/neighbours1.txt";
 
   // create filenames
   char buffer[20];
-  sprintf(buffer, "%1.1f.txt", alpha[0]);
+  cout << "nTypes: " << nTypes << endl;
+  if (nTypes == 1)
+    sprintf(buffer, "%1.1f.txt", alpha[0]);
+  else
+    sprintf(buffer, "%1.1f-%1.1f.txt", alpha[0], alpha[1]);
   std::string name(buffer);
-  filenameTau = "tmp/tau" + name;
-  filenameStep = "tmp/step" + name;
+  filenameTau = "1e4tmp/tau" + name;
+  filenameStep = "1e4tmp/step" + name;
   cout << filenameTau << endl;
   cout << filenameStep << endl;
 
@@ -156,36 +166,37 @@ double ComputeNeigh::compute_scalar()
 
   // write tau and step sampled to file
   outTau.open(filenameTau, std::ios::app);
-  outTau << tau[0] << " " << tau[1] << endl;
+  for (int t : tau) outTau << t << " ";
+  outTau << endl;
   outTau.close();
 
   outStep.open(filenameStep, std::ios::app);
-  if (tau[0] == 0) outStep << 0 << " " << myStep << endl;
-  if (tau[1] == 0) outStep << 1 << " " << myStep << endl;
+  for (int i=0; i < nChosenAtoms; i++)
+    if (tau[i] == 0) outStep << i << " " << myStep << endl;
   outStep.close();
 
-  // sample if tau = 1
+  // sample if tau = 0
   int counter = 0;
   for (ii : chosenAtoms) {
     i = ilist[ii];
     itype = type[i]-1;
 
-    if (tau[itype] > 0) {
-      sample = 0;
+    if (tau[counter] > 0) {
+      sample[counter] = 0;
       continue;
     }
-    else sample = 1;
+    else sample[counter] = 1;
 
     double F = sqrt(f[i][0]*f[i][0] + f[i][1]*f[i][1] + f[i][2]*f[i][2]);
 
     // no delay if force is larger than alpha
-    if (F > alpha[itype]) tau[itype] = 0;
+    if (F > alpha[itype]) tau[counter] = 0;
 
     // calculate delay if force less than alpha
     else {
       int factor = floor( alpha[itype] / F );
-      //if (factor > 30) factor = 39;
-      tau[itype] = factor;
+      if (factor > maxFactor) factor = maxFactor;
+      tau[counter] = factor;
     }
 
     if (itype == 0) outfiles[0].open(filename0.c_str(), std::ios::app);
@@ -226,12 +237,11 @@ double ComputeNeigh::compute_scalar()
   }   
 
   // adjust sampling time interval
-  for (int i=0; i < nTypes; i++)
-    if (tau[i] > 0 && sample == 0) tau[i]--;
+  for (int i=0; i < nChosenAtoms; i++)
+    if (tau[i] > 0 && sample[i] == 0) tau[i]--;
 
   myStep++;
 
-  scalar = 1;
-  return scalar;
+  return 1;
 }
 
