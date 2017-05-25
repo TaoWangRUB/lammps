@@ -45,6 +45,7 @@ class ComputeNeigh : public Compute {
   int nTypes;
   int maxFactor;
   int nChosenAtoms;
+  bool useAlgo;
 
   std::ofstream outfiles[2];
   std::ofstream outTau;

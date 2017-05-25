@@ -249,11 +249,11 @@ void PairMyVashishta::compute(int eflag, int vflag)
     double zi = x[i][2];
 
     // write out coordinates of chosen atoms
-    if (myStep == 0) {
+    //if (myStep == 0) {
       std::cout << "Chosen atom: "
       << i << " " << itype << " " << xi << " " << yi << " " 
       << zi << " " << std::endl;  
-    }
+    //}
 
     jlist = firstneigh[i];
     jnum = numneigh[i];

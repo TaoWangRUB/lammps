@@ -647,6 +647,8 @@ void PairNNMultiType::compute(int eflag, int vflag)
         double rsq2 = delxk*delxk + delyk*delyk + delzk*delzk;  
 
         if (rsq2 >= 2.6*2.6) continue;
+        std::tie(a, b) = elem2param3[std::make_tuple(itype,jtype,ktype)];
+        if (b == 0) continue;
         
         // calculate quantites needed in G4/G5
         double rik = sqrt(rsq2);
@@ -674,9 +676,6 @@ void PairNNMultiType::compute(int eflag, int vflag)
 
         // increment
         neighk++;
-
-        // apply 3-body symmetry
-        std::tie(a, b) = elem2param3[std::make_tuple(itype,jtype,ktype)];
         n = b - a;
         arma::ivec rangeList3 = arma::linspace<arma::ivec>(a, b-1, n);
         for (auto s : rangeList3)
@@ -745,6 +744,9 @@ void PairNNMultiType::compute(int eflag, int vflag)
       cout << Rij << endl;
       if (myStep == 40) exit(1);
     }
+
+    if (i == 307 || i == 309)
+      cout << xtmp << " " << ytmp << " " << ztmp << endl;
 
     double fx2 = 0;
     double fy2 = 0;
@@ -1183,11 +1185,12 @@ void PairNNMultiType::read_file(char *file, int type)
   // check if file successfully opened
   if ( !inputParameters.is_open() ) std::cout << "File is not opened" << std::endl;
 
-  inputParameters >> m_numberOfSymmFunc[type];
+  int dummy;
+  inputParameters >> m_numberOfSymmFunc[type] >> dummy;
   std::cout << "Number of symmetry functions: " << m_numberOfSymmFunc[type] << std::endl;
 
   // skip blank line
-  std::getline(inputParameters, dummyLine);
+  //std::getline(inputParameters, dummyLine);
 
   // make mapping from element to parameter indicies
 
@@ -1205,58 +1208,81 @@ void PairNNMultiType::read_file(char *file, int type)
 
   int sOld = 0;
   int sNew = 0;
-  int i = 0;
+  int setCount = 0;
+  int currentSymmFunc;
+  bool newSet = false;
+  std::vector<int> types;
+  m_parameters[type].resize(m_numberOfSymmFunc[type]); 
   for ( std::string line; std::getline(inputParameters, line); ) {
 
     if ( line.empty() ) {
-      if (i < nTypes)
-        elem2param2[std::make_pair(std::get<0>(pairs[i]), std::get<1>(pairs[i]))] = 
-          std::make_pair(sOld,sNew);
-      else {
-        int i3 = i - nTypes;
-        elem2param3[std::make_tuple(std::get<0>(triplets[i3]), 
-                           std::get<1>(triplets[i3]), 
-                           std::get<2>(triplets[i3]))] = 
-          std::make_pair(sOld,sNew);
+      newSet = true;
+      
+      // make elem2param
+      if (setCount > 0) {
+
+        // G2
+        if (types.size() == 2)  
+          elem2param2[std::make_pair(types[0], types[1])] = 
+                                  std::make_pair(sOld,sNew);
+        // G5
+        else 
+          elem2param3[std::make_tuple(types[0], types[1], types[2])] = 
+                                  std::make_pair(sOld,sNew);
       }
       sOld = sNew;
-      i++;
+      setCount++;
       continue;
     }
 
-    double buffer;                  // have a buffer string
-    std::stringstream ss(line);     // insert the string into a stream
+    // read in current types after empty line
+    if (newSet) {
+      cout << "Reading types" << endl;
+      int type;
+      types.clear();
+      std::stringstream ss(line);
+      while (ss >> type)
+        types.push_back(type);
 
-    // while there are new parameters on current line, add them to matrix
-    m_parameters[type].resize(m_numberOfSymmFunc[type]); 
-    while ( ss >> buffer ) {
-        m_parameters[type][sNew].push_back(buffer);
+      cout << "New set: ";
+      for (int t : types)
+        cout << t << " ";
+      cout << endl;
+      newSet = false;
     }
-    sNew++;
+
+    // save parameters to vector
+    else {
+      double param;             
+      std::stringstream ss(line);
+
+      // while there are new parameters on current line, add them to matrix
+      while ( ss >> param )
+          m_parameters[type][sNew].push_back(param);
+      sNew++;
+    }
   }
   inputParameters.close();
   std::cout << "Parameters file read......" << std::endl;
 
-  if (type == 1) {
-    for (auto i: m_parameters)
-      for (auto j : i) {
-        for (auto k : j)
-          cout << k << " ";
-        cout << endl;
-      }
-  } 
+  for (auto i: m_parameters)
+    for (auto j : i) {
+      for (auto k : j)
+        cout << k << " ";
+      cout << endl;
+    }
 
-  cout << std::get<0>(elem2param2[std::make_pair(type,0)]) << endl;
-  cout << std::get<1>(elem2param2[std::make_pair(type,0)]) << endl;
-  cout << std::get<0>(elem2param2[std::make_pair(type,1)]) << endl;
-  cout << std::get<1>(elem2param2[std::make_pair(type,1)]) << endl;
+  cout << type << 0 << " " << std::get<0>(elem2param2[std::make_pair(type,0)]) << endl;
+  cout << type << 0 << " " << std::get<1>(elem2param2[std::make_pair(type,0)]) << endl;
+  cout << type << 1 << " " << std::get<0>(elem2param2[std::make_pair(type,1)]) << endl;
+  cout << type << 1 << " " << std::get<1>(elem2param2[std::make_pair(type,1)]) << endl;
 
-  cout << std::get<0>(elem2param3[std::make_tuple(type,0,0)]) << endl;
-  cout << std::get<1>(elem2param3[std::make_tuple(type,0,0)]) << endl;
-  cout << std::get<0>(elem2param3[std::make_tuple(type,0,1)]) << endl;
-  cout << std::get<1>(elem2param3[std::make_tuple(type,0,1)]) << endl;
-  cout << std::get<0>(elem2param3[std::make_tuple(type,1,0)]) << endl;
-  cout << std::get<1>(elem2param3[std::make_tuple(type,1,0)]) << endl;
-  cout << std::get<0>(elem2param3[std::make_tuple(type,1,1)]) << endl;
-  cout << std::get<1>(elem2param3[std::make_tuple(type,1,1)]) << endl;
+  cout << type << "00" << " " << std::get<0>(elem2param3[std::make_tuple(type,0,0)]) << endl;
+  cout << type << "00" << " " << std::get<1>(elem2param3[std::make_tuple(type,0,0)]) << endl;
+  cout << type << "01" << " " << std::get<0>(elem2param3[std::make_tuple(type,0,1)]) << endl;
+  cout << type << "01" << " " << std::get<1>(elem2param3[std::make_tuple(type,0,1)]) << endl;
+  cout << type << "10" << " " << std::get<0>(elem2param3[std::make_tuple(type,1,0)]) << endl;
+  cout << type << "10" << " " << std::get<1>(elem2param3[std::make_tuple(type,1,0)]) << endl;
+  cout << type << "11" << " " << std::get<0>(elem2param3[std::make_tuple(type,1,1)]) << endl;
+  cout << type << "11" << " " << std::get<1>(elem2param3[std::make_tuple(type,1,1)]) << endl;
 }

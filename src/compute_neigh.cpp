@@ -56,14 +56,15 @@ using std::endl;
 ComputeNeigh::ComputeNeigh(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg)
 {
-  if (narg != 5 && narg != 6) error->all(FLERR,"Illegal compute neigh command");
+  if (narg != 6 && narg != 7) error->all(FLERR,"Illegal compute neigh command");
 
   nTypes = atom->ntypes;
   alpha.resize(nTypes);
   for (int i=0; i < nTypes; i++)
     alpha[i] = atof(arg[3+i]);
 
-  maxFactor = atoi(arg[5]);
+  maxFactor = atoi(arg[3+nTypes]);
+  useAlgo = atoi(arg[3+nTypes+1]);
 
   scalar_flag = 1;
   extscalar = 1;
@@ -181,7 +182,7 @@ double ComputeNeigh::compute_scalar()
     i = ilist[ii];
     itype = type[i]-1;
 
-    if (tau[counter] > 0) {
+    if (tau[counter] > 0 && useAlgo) {
       sample[counter] = 0;
       continue;
     }
