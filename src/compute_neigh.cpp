@@ -66,6 +66,8 @@ ComputeNeigh::ComputeNeigh(LAMMPS *lmp, int narg, char **arg) :
   maxFactor = atoi(arg[3+nTypes]);
   useAlgo = atoi(arg[3+nTypes+1]);
 
+  cout << "useAlgo: " << useAlgo << endl;
+
   scalar_flag = 1;
   extscalar = 1;
 }
@@ -94,8 +96,8 @@ void ComputeNeigh::init()
   else
     sprintf(buffer, "%1.1f-%1.1f.txt", alpha[0], alpha[1]);
   std::string name(buffer);
-  filenameTau = "1e4tmp/tau" + name;
-  filenameStep = "1e4tmp/step" + name;
+  filenameTau = "tmp/1e4tau" + name;
+  filenameStep = "tmp/1e4step" + name;
   cout << filenameTau << endl;
   cout << filenameStep << endl;
 
@@ -222,8 +224,12 @@ double ComputeNeigh::compute_scalar()
       rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
 
       // pair cut
-      //if (rsq1 >= cutsq[itype][jtype]) continue;
-      if (rsq1 >= 5.5*5.5) continue;
+      if (cutsq[itype+1][jtype+1] != 30.25) {
+        cout << "Wrong cut" << endl;
+        exit(1);
+      }
+
+      if (rsq1 >= cutsq[itype+1][jtype+1]) continue;
 
       // write relative coordinates to file
       // check triplet cuts when making symmetry later

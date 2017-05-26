@@ -249,11 +249,11 @@ void PairMyVashishta::compute(int eflag, int vflag)
     double zi = x[i][2];
 
     // write out coordinates of chosen atoms
-    //if (myStep == 0) {
+    if (myStep == 0) {
       std::cout << "Chosen atom: "
       << i << " " << itype << " " << xi << " " << yi << " " 
       << zi << " " << std::endl;  
-    //}
+    }
 
     jlist = firstneigh[i];
     jnum = numneigh[i];
@@ -375,12 +375,21 @@ void PairMyVashishta::coeff(int narg, char **arg)
   //makeDirectory();
 
   // decide number of samples for each time step
-  int nChosenAtoms = 2;
-  dumpEnergies.resize(nChosenAtoms);
-  chosenAtoms.resize(nChosenAtoms);
-  chosenAtoms[0] = 307;
-  chosenAtoms[1] = 309;
-
+  int nAtoms = 9;
+  if (nAtoms < 10) {
+    cout << "Number of chosen atoms (all atoms): " << nAtoms << endl;
+    chosenAtoms.resize(nAtoms);
+    dumpEnergies.resize(nAtoms);
+    for (int i=0; i < nAtoms; i++)
+      chosenAtoms[i] = i;
+  }
+  else {
+    int nChosenAtoms = 2;
+    chosenAtoms.resize(nChosenAtoms);
+    dumpEnergies.resize(nChosenAtoms);
+    chosenAtoms[0] = 307;
+    chosenAtoms[1] = 309;
+  }
 
   if (elements) {
     for (i = 0; i < nelements; i++) delete [] elements[i];

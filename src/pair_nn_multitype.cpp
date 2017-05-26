@@ -563,6 +563,8 @@ void PairNNMultiType::compute(int eflag, int vflag)
     arma::mat drij(3, jnum);       // (dxij, dyij, dzyij)   
     std::vector<int> tagsj;  // indicies of j-atoms
     std::vector<int> typesj; // types of j-atoms
+    std::vector<int> tagsj3;
+    std::vector<int> typesj3;
 
     // store all triplets etc in vectors
     // jnum pairs, jnum-1 triplets max
@@ -580,6 +582,7 @@ void PairNNMultiType::compute(int eflag, int vflag)
 
     // keep track of how many atoms below r2
     int neighbours = 0;
+    int neighbours3 = 0;
 
     // collect all pairs
     for (int jj = 0; jj < jnum; jj++) {
@@ -606,7 +609,7 @@ void PairNNMultiType::compute(int eflag, int vflag)
       tagsj.push_back(j);
       typesj.push_back(jtype);
       tagsk.push_back(std::vector<int>());
-      typesk.push_back(std::vector<int>());
+      typesk.push_back(std::vector<int>()); 
 
       // apply 2-body symmetry
       int a, b, n;
@@ -671,8 +674,8 @@ void PairNNMultiType::compute(int eflag, int vflag)
         drjk(0, neighk) = delxjk;
         drjk(1, neighk) = delyjk;
         drjk(2, neighk) = delzjk;
-        tagsk[neighbours].push_back(k);
-        typesk[neighbours].push_back(ktype);
+        tagsk[neighbours3].push_back(k);
+        typesk[neighbours3].push_back(ktype);
 
         // increment
         neighk++;
@@ -696,20 +699,24 @@ void PairNNMultiType::compute(int eflag, int vflag)
         continue;
       }
 
+      tagsj3.push_back(j);
+      typesj3.push_back(jtype);
+
       // get rid of empty elements
-      Rik = Rik.head_cols(neighk);
-      drik = drik.head_cols(neighk);
-      CosTheta = CosTheta.head_cols(neighk);
-      Rjk = Rjk.head_cols(neighk);
-      drjk = drjk.head_cols(neighk);
+      Rik       = Rik.head_cols(neighk);
+      drik      = drik.head_cols(neighk);
+      CosTheta  = CosTheta.head_cols(neighk);
+      Rjk       = Rjk.head_cols(neighk);
+      drjk      = drjk.head_cols(neighk);
 
       // store all k's for current (i,j) to compute forces later
-      Riks[neighbours]      = Rik;
-      driks[neighbours]     = drik;
-      cosThetas[neighbours] = CosTheta;
-      Rjks[neighbours]      = Rjk;
-      drjks[neighbours]     = drjk;
+      Riks[neighbours3]      = Rik;
+      driks[neighbours3]     = drik;
+      cosThetas[neighbours3] = CosTheta;
+      Rjks[neighbours3]      = Rjk;
+      drjks[neighbours3]     = drjk;
       neighbours++;
+      neighbours3++;
     }
 
     // get rid of empty elements
@@ -744,9 +751,6 @@ void PairNNMultiType::compute(int eflag, int vflag)
       cout << Rij << endl;
       if (myStep == 40) exit(1);
     }
-
-    if (i == 307 || i == 309)
-      cout << xtmp << " " << ytmp << " " << ztmp << endl;
 
     double fx2 = 0;
     double fy2 = 0;
@@ -801,9 +805,9 @@ void PairNNMultiType::compute(int eflag, int vflag)
       // G4/G5: neighbours-1 triplet environments per symmetry function
       else {
 
-        for (int l=0; l < neighbours-1; l++) {
+        for (int l=0; l < tagsj3.size(); l++) {
 
-          int numberOfTriplets = arma::size(Riks[l])(1);
+          int numberOfTriplets = tagsk[l].size();
 
           // calculate forces for all triplets (i,j,k) for this (i,j)
           // fj3 and dEdR3 is passed by reference
@@ -870,9 +874,9 @@ void PairNNMultiType::compute(int eflag, int vflag)
 
             // add to atom j. Not N3L, but becuase
             // every pair (i,j) is counted twice for triplets
-            f[tagsj[l]][0] += fj3[0];
-            f[tagsj[l]][1] += fj3[1];
-            f[tagsj[l]][2] += fj3[2];
+            f[tagsj3[l]][0] += fj3[0];
+            f[tagsj3[l]][1] += fj3[1];
+            f[tagsj3[l]][2] += fj3[2];
 
             // add to atom k 
             f[tagsk[l][m]][0] += fk3[0];
