@@ -43,7 +43,7 @@ class ComputeNeigh : public Compute {
   std::vector<double> alpha;
   std::vector<int> tau;
   int nTypes;
-  int maxFactor;
+  int maxDelay;
   int nChosenAtoms;
   bool useAlgo;
 
@@ -52,7 +52,7 @@ class ComputeNeigh : public Compute {
   std::ofstream outStep;
   std::string filenameTau;
   std::string filenameStep;
-  std::vector<bool> sample;
+  std::vector<int> sample;
 
   class NeighList *list;         // standard neighbor list used by most pairs
 };

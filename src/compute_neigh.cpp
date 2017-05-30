@@ -23,17 +23,6 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
-#include "compute_pair_local.h"
-#include "atom.h"
-#include "update.h"
-#include "force.h"
-#include "pair.h"
-#include "neighbor.h"
-#include "neigh_request.h"
-#include "neigh_list.h"
-#include "group.h"
-#include "memory.h"
-#include "error.h"
 
 #include "neighbor.h"
 #include "neigh_list.h"
@@ -43,7 +32,6 @@
 #include <iostream>
 #include <iomanip>
 #include "pair.h"
-#include "pair_vashishta.h"
 #include <vector>
 
 using namespace LAMMPS_NS;
@@ -63,7 +51,7 @@ ComputeNeigh::ComputeNeigh(LAMMPS *lmp, int narg, char **arg) :
   for (int i=0; i < nTypes; i++)
     alpha[i] = atof(arg[3+i]);
 
-  maxFactor = atoi(arg[3+nTypes]);
+  maxDelay = atoi(arg[3+nTypes]);
   useAlgo = atoi(arg[3+nTypes+1]);
 
   cout << "useAlgo: " << useAlgo << endl;
@@ -80,10 +68,10 @@ void ComputeNeigh::init()
   nChosenAtoms = chosenAtoms.size();
 
   tau.resize(nChosenAtoms);
-  for (int t : tau) t = 0;
+  for (int t=0; t < nChosenAtoms; t++) tau[t] = 1;
 
   sample.resize(nChosenAtoms);
-  for (int s : sample) s = 0;
+  for (int s=0; s < nChosenAtoms; s++) sample[s] = 1;
 
   filename0 = "Data/TrainingData/neighbours0.txt";
   filename1 = "Data/TrainingData/neighbours1.txt";
@@ -167,40 +155,32 @@ double ComputeNeigh::compute_scalar()
   double **cutsq = force->pair->cutsq;
   std::vector<double> dumpEnergies = force->pair->dumpEnergies;
 
-  // write tau and step sampled to file
-  outTau.open(filenameTau, std::ios::app);
-  for (int t : tau) outTau << t << " ";
-  outTau << endl;
-  outTau.close();
-
+  int atomCount = 0;
   outStep.open(filenameStep, std::ios::app);
-  for (int i=0; i < nChosenAtoms; i++)
-    if (tau[i] == 0) outStep << i << " " << myStep << endl;
-  outStep.close();
-
-  // sample if tau = 0
-  int counter = 0;
-  for (ii : chosenAtoms) {
+  for (auto ii : chosenAtoms) {
     i = ilist[ii];
     itype = type[i]-1;
 
-    if (tau[counter] > 0 && useAlgo) {
-      sample[counter] = 0;
-      continue;
-    }
-    else sample[counter] = 1;
-
     double F = sqrt(f[i][0]*f[i][0] + f[i][1]*f[i][1] + f[i][2]*f[i][2]);
 
-    // no delay if force is larger than alpha
-    if (F > alpha[itype]) tau[counter] = 0;
+    // update tau every 10th step
+    if ( !(myStep % maxDelay) ) {
 
-    // calculate delay if force less than alpha
-    else {
-      int factor = floor( alpha[itype] / F );
-      if (factor > maxFactor) factor = maxFactor;
-      tau[counter] = factor;
+      // no delay if force is larger than alpha
+      if (F > alpha[itype]) tau[atomCount] = 1;
+
+      // calculate delay if force less than alpha
+      else {
+        int factor = floor( alpha[itype] / F );
+        if (factor > maxDelay) tau[atomCount] = maxDelay;
+        else                   tau[atomCount] = factor;
+      }
     }
+
+    if (myStep > 0)
+      if ( (myStep % tau[atomCount] > 0) && useAlgo) continue;
+
+    outStep << i << " " << myStep << endl;
 
     if (itype == 0) outfiles[0].open(filename0.c_str(), std::ios::app);
     else            outfiles[1].open(filename1.c_str(), std::ios::app);
@@ -238,14 +218,21 @@ double ComputeNeigh::compute_scalar()
     }
 
     // store energy
-    outfiles[itype] << std::setprecision(17) << dumpEnergies[counter] << std::endl;
+    outfiles[itype] << std::setprecision(17) << dumpEnergies[atomCount] << std::endl;
     outfiles[itype].close();
-    counter++;
+    atomCount++;
   }   
+  outStep.close();
+
+  // write tau and step sampled to file
+  outTau.open(filenameTau, std::ios::app);
+  for (int t : tau) outTau << t << " ";
+  outTau << endl;
+  outTau.close();
 
   // adjust sampling time interval
-  for (int i=0; i < nChosenAtoms; i++)
-    if (tau[i] > 0 && sample[i] == 0) tau[i]--;
+  //for (int i=0; i < nChosenAtoms; i++)
+  //  if (tau[i] > 0) tau[i]--;
 
   myStep++;
 

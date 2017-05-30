@@ -375,7 +375,7 @@ void PairMyVashishta::coeff(int narg, char **arg)
   //makeDirectory();
 
   // decide number of samples for each time step
-  int nAtoms = 9;
+  int nAtoms = 10;
   if (nAtoms < 10) {
     cout << "Number of chosen atoms (all atoms): " << nAtoms << endl;
     chosenAtoms.resize(nAtoms);
