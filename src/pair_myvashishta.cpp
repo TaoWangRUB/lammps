@@ -221,7 +221,8 @@ void PairMyVashishta::compute(int eflag, int vflag)
         f[k][1] += fk[1];
         f[k][2] += fk[2];
 
-        if (evflag) ev_tally3(i,j,k,evdwl,0.0,fj,fk,delr1,delr2);
+        // EDIT to my customized tally that do not divide eatom by 3
+        if (evflag) ev_tally3sampling(i,j,k,evdwl,0.0,fj,fk,delr1,delr2);
       }
       f[j][0] += fjxtmp;
       f[j][1] += fjytmp;
@@ -375,7 +376,7 @@ void PairMyVashishta::coeff(int narg, char **arg)
   //makeDirectory();
 
   // decide number of samples for each time step
-  int nAtoms = 10;
+  int nAtoms = 9;
   if (nAtoms < 10) {
     cout << "Number of chosen atoms (all atoms): " << nAtoms << endl;
     chosenAtoms.resize(nAtoms);

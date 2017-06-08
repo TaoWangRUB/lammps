@@ -146,10 +146,15 @@ double ComputeNeigh::compute_scalar()
 
   neighbor->build_one(list);
 
+  int *mask = atom->mask;
+
   inum = list->inum;
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
+
+  //comm->reverse_comm_compute(this);
+  //comm->forward_comm_compute(this);
 
   Pair *pair = force->pair;
   double **cutsq = force->pair->cutsq;
@@ -157,8 +162,10 @@ double ComputeNeigh::compute_scalar()
 
   int atomCount = 0;
   outStep.open(filenameStep, std::ios::app);
-  for (auto ii : chosenAtoms) {
-    i = ilist[ii];
+  //for (auto i : chosenAtoms) {
+  for (i=0; i < inum; i++) {
+    if (!(mask[i] & groupbit)) continue;
+    //i = ilist[ii];
     itype = type[i]-1;
 
     double F = sqrt(f[i][0]*f[i][0] + f[i][1]*f[i][1] + f[i][2]*f[i][2]);
@@ -203,12 +210,6 @@ double ComputeNeigh::compute_scalar()
 
       rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
 
-      // pair cut
-      if (cutsq[itype+1][jtype+1] != 30.25) {
-        cout << "Wrong cut" << endl;
-        exit(1);
-      }
-
       if (rsq1 >= cutsq[itype+1][jtype+1]) continue;
 
       // write relative coordinates to file
@@ -218,7 +219,8 @@ double ComputeNeigh::compute_scalar()
     }
 
     // store energy
-    outfiles[itype] << std::setprecision(17) << dumpEnergies[atomCount] << std::endl;
+    cout << std::setprecision(10) << tag[i] << " " << dumpEnergies[atomCount] << " " << pair->eatom[i] << endl;
+    //outfiles[itype] << std::setprecision(17) << dumpEnergies[atomCount] << std::endl;
     outfiles[itype].close();
     atomCount++;
   }   
@@ -229,10 +231,6 @@ double ComputeNeigh::compute_scalar()
   for (int t : tau) outTau << t << " ";
   outTau << endl;
   outTau.close();
-
-  // adjust sampling time interval
-  //for (int i=0; i < nChosenAtoms; i++)
-  //  if (tau[i] > 0) tau[i]--;
 
   myStep++;
 

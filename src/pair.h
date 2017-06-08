@@ -133,6 +133,8 @@ class Pair : protected Pointers {
                 double, double, double);
   void ev_tally3(int, int, int, double, double,
                  double *, double *, double *, double *);
+  void ev_tally3sampling(int, int, int, double, double,
+                 double *, double *, double *, double *);
   void ev_tally3_nn(int i, int j, int k,
                     double *fj, double *fk,
                     double xij, double yij, double zij,
