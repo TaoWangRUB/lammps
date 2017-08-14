@@ -67,7 +67,6 @@ class PairMySW : public Pair {
   std::ofstream outConfigs;
   int myStep = 0;
   int randomAtom;
-  bool writeNeigh;
   void makeDirectory();
 
   virtual void allocate();

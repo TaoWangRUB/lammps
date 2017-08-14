@@ -66,6 +66,7 @@ void ComputeNeigh::init()
 {
   chosenAtoms = force->pair->chosenAtoms;
   nChosenAtoms = chosenAtoms.size();
+  cout << "N chosen atoms in neigh: " << nChosenAtoms << endl;
 
   tau.resize(nChosenAtoms);
   for (int t=0; t < nChosenAtoms; t++) tau[t] = 1;
@@ -73,8 +74,13 @@ void ComputeNeigh::init()
   sample.resize(nChosenAtoms);
   for (int s=0; s < nChosenAtoms; s++) sample[s] = 1;
 
-  filename0 = "Data/TrainingData/neighbours0.txt";
-  filename1 = "Data/TrainingData/neighbours1.txt";
+  if (nTypes > 1) {
+    filename0 = "Data/TrainingData/neighbours0.txt";
+    filename1 = "Data/TrainingData/neighbours1.txt";
+  }
+  else
+    filename0 = "Data/TrainingData/neighbours.txt";
+
 
   // create filenames
   char buffer[20];
@@ -95,10 +101,12 @@ void ComputeNeigh::init()
     std::cout << "File is not opened" << std::endl;
   outfiles[0].close();
 
-  outfiles[1].open(filename1.c_str());
-  if ( !outfiles[1].is_open() ) 
-    std::cout << "File is not opened" << std::endl;
-  outfiles[1].close();
+  if (nTypes > 1) {
+    outfiles[1].open(filename1.c_str());
+    if ( !outfiles[1].is_open() ) 
+      std::cout << "File is not opened" << std::endl;
+    outfiles[1].close();
+  }
 
   outTau.open(filenameTau);
   if ( !outTau.is_open() ) 
@@ -162,22 +170,21 @@ double ComputeNeigh::compute_scalar()
 
   int atomCount = 0;
   outStep.open(filenameStep, std::ios::app);
-  //for (auto i : chosenAtoms) {
-  for (i=0; i < inum; i++) {
-    if (!(mask[i] & groupbit)) continue;
-    //i = ilist[ii];
+  for (auto i : chosenAtoms) {
+  //for (i=0; i < inum; i++) {
+    //if (!(mask[i] & groupbit)) continue;
     itype = type[i]-1;
 
     double F = sqrt(f[i][0]*f[i][0] + f[i][1]*f[i][1] + f[i][2]*f[i][2]);
 
     // update tau every 10th step
-    if ( !(myStep % maxDelay) ) {
+    if ( !(myStep % maxDelay) && myStep > 0) {
 
       // no delay if force is larger than alpha
       if (F > alpha[itype]) tau[atomCount] = 1;
 
       // calculate delay if force less than alpha
-      else {
+      else { 
         int factor = floor( alpha[itype] / F );
         if (factor > maxDelay) tau[atomCount] = maxDelay;
         else                   tau[atomCount] = factor;
@@ -187,7 +194,7 @@ double ComputeNeigh::compute_scalar()
     if (myStep > 0)
       if ( (myStep % tau[atomCount] > 0) && useAlgo) continue;
 
-    outStep << i << " " << myStep << endl;
+    outStep << tag[i] << " " << myStep << endl;
 
     if (itype == 0) outfiles[0].open(filename0.c_str(), std::ios::app);
     else            outfiles[1].open(filename1.c_str(), std::ios::app);
@@ -214,13 +221,18 @@ double ComputeNeigh::compute_scalar()
 
       // write relative coordinates to file
       // check triplet cuts when making symmetry later
-      outfiles[itype] << std::setprecision(17) << delr1[0] << " " 
-      << delr1[1] << " " << delr1[2] << " " << rsq1 << " " << jtype << " ";
+
+      if (nTypes > 1)
+        outfiles[itype] << std::setprecision(17) << delr1[0] << " " 
+        << delr1[1] << " " << delr1[2] << " " << rsq1 << " " << jtype << " ";
+      else
+        outfiles[itype] << std::setprecision(17) << delr1[0] << " " 
+        << delr1[1] << " " << delr1[2] << " " << rsq1 << " ";
     }
 
     // store energy
-    cout << std::setprecision(10) << tag[i] << " " << dumpEnergies[atomCount] << " " << pair->eatom[i] << endl;
-    //outfiles[itype] << std::setprecision(17) << dumpEnergies[atomCount] << std::endl;
+    //cout << std::setprecision(10) << tag[i] << " " << dumpEnergies[atomCount] << " " << pair->eatom[i] << endl;
+    outfiles[itype] << std::setprecision(17) << dumpEnergies[atomCount] << std::endl;
     outfiles[itype].close();
     atomCount++;
   }   
@@ -231,7 +243,6 @@ double ComputeNeigh::compute_scalar()
   for (int t : tau) outTau << t << " ";
   outTau << endl;
   outTau.close();
-
   myStep++;
 
   return 1;

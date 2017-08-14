@@ -203,113 +203,81 @@ void PairMySW::compute(int eflag, int vflag)
         f[k][1] += fk[1];
         f[k][2] += fk[2];
 
-        if (evflag) ev_tally3(i,j,k,evdwl,0.0,fj,fk,delr1,delr2);
+        if (evflag) ev_tally3sampling(i,j,k,evdwl,0.0,fj,fk,delr1,delr2);
       }
     }
   }
 
   if (vflag_fdotr) virial_fdotr_compute();
 
+  // EDIT
+  int chosenCount = 0;
+  //for (i=0; i < inum; i++) {
+  for (auto i : chosenAtoms) {
+    //i = ilist[ii];
+    itype = map[type[i]];
+    itag = tag[i];
 
-  // EDITING: output neighbour lists and energies
-  // after all computations are made
+    // calculate energies manually, not eatom[i]
+    double energy = 0;
 
-  // write neighbour lists every 100 steps
-  if ( writeNeigh && !(myStep % 10) ) {
-    
-    outfile.open(filename.c_str(), std::ios::app);
+    double xi = x[i][0];
+    double yi = x[i][1];
+    double zi = x[i][2];
 
-    // sample ONE atom
-    int chosenAtom = 2;
+    // write out coordinates of chosen atoms
+    if (myStep == 0) {
+      std::cout << "Chosen atom: "
+      << i << " " << itype << " " << xi << " " << yi << " " 
+      << zi << " " << std::endl;  
+      std::cout << "Tag: " << tag[i] << endl;
+    }
 
-    // sample several atoms
-    //int nAtoms = 3;      
-    //arma::ivec atoms = arma::randi<arma::ivec>
-    //                   (nAtoms, arma::distr_param(0, inum));
+    jlist = firstneigh[i];
+    jnum = numneigh[i];
+    for (jj = 0; jj < jnum; jj++) {
+      j = jlist[jj];
+      j &= NEIGHMASK;
+      jtag = tag[j];
+      jtype = map[type[j]];
 
-    //for (auto ii : atoms) {
-    for (ii = 0; ii < inum; ii++) {
-  	  i = ilist[ii];
-  	  double xi = x[i][0];
-  	  double yi = x[i][1];
-  	  double zi = x[i][2];
+      delr1[0] = x[j][0] - xi;
+      delr1[1] = x[j][1] - yi;
+      delr1[2] = x[j][2] - zi;
+
+      rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
       
-      // THIS CHOOSES ONLY ONE ATOM BASED ON TAG
-      itag = tag[i];
-      if (itag != chosenAtom) continue;
+      ijparam = elem2param[itype][jtype][jtype];
 
-      std::vector<std::pair<std::string, int>> indicies;
-      indicies.push_back({"i", i});
+      // pair cut
+      if (rsq1 >= params[ijparam].cutsq) continue;
 
-      double energy = 0;
+      twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
+      energy += evdwl/2.0;
 
-  	  jlist = firstneigh[i];
-  	  jnum = numneigh[i];
-  	  for (jj = 0; jj < jnum; jj++) {
-  	    j = jlist[jj];
-  	    j &= NEIGHMASK;
-  	    jtag = tag[j];
-  	    jtype = map[type[j]];
+      for (kk = jj+1; kk < jnum; kk++) {
+        k = jlist[kk];
+        ktype = map[type[k]];
+        ikparam = elem2param[itype][ktype][ktype];
+        ijkparam = elem2param[itype][jtype][ktype];
 
-  	    delr1[0] = x[j][0] - xi;
-  	    delr1[1] = x[j][1] - yi;
-  	    delr1[2] = x[j][2] - zi;
+        delr2[0] = x[k][0] - xi;
+        delr2[1] = x[k][1] - yi;
+        delr2[2] = x[k][2] - zi;
+        rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
 
-  	    rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];      
+        if (rsq2 >= params[ikparam].cutsq) continue;
 
-  	    ijparam = elem2param[itype][jtype][jtype];
+        threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
+                  rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
+        energy += evdwl;
+      }
+    }
 
-  	    if (rsq1 >= params[ijparam].cutsq) continue;
-
-        indicies.push_back({"j", jtag});
-
-        twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
-
-        // counting each pair twice -> divide by 2
-        energy += evdwl/2;
-
-        // save positions of neighbour j relative to position
-        // of central atom i for use in training
-
-        // without tag
-        outfile << std::setprecision(17) << delr1[0] << " " << 
-                   delr1[1] << " " << delr1[2] << " " << rsq1 << " ";
-                   
-        for (kk = jj+1; kk < jnum; kk++) {
-          k = jlist[kk];
-          k &= NEIGHMASK;
-          ktype = map[type[k]];
-          jtag = tag[k];
-          ikparam = elem2param[itype][ktype][ktype];
-          ijkparam = elem2param[itype][jtype][ktype];
-
-          delr2[0] = x[k][0] - xi;
-          delr2[1] = x[k][1] - yi;
-          delr2[2] = x[k][2] - zi;
-          rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
-
-          if (rsq2 >= params[ikparam].cutsq) continue;
-
-          indicies.push_back({"k", jtag});
-
-          threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
-                    rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
-          energy += evdwl;
-        }
-  	  }
-
-      // store energy 
-  		outfile << std::setprecision(17) << energy << endl;
-
-      /*if (indicies.size() != 10) {
-        cout << myStep << " ";
-        for (auto l : indicies)
-          cout << std::get<0>(l) << " " << std::get<1>(l) << " ";
-        cout << endl;
-      }*/
-  	}
-    outfile.close();
-  }
+    // store energy
+    dumpEnergies[chosenCount] = energy;
+    chosenCount++;
+  }   
   myStep++;
 }
 
@@ -356,21 +324,35 @@ void PairMySW::coeff(int narg, char **arg)
 
   if (!allocated) allocate();
 
-  if (!(narg == 3 + atom->ntypes || narg == 3 + atom->ntypes + 1))
+  if (!(narg == 3 + atom->ntypes))
     error->all(FLERR,"Incorrect args for pair coefficients");
-
-  // EDIT: read filename argument if supplied
-  if (narg == 3 + atom->ntypes + 1) {
-    std::string name = arg[narg-1];
-    narg--;
-    writeNeigh = 1;
-    //makeDirectory();
-  }
 
   // insure I,J args are * *
 
   if (strcmp(arg[0],"*") != 0 || strcmp(arg[1],"*") != 0)
     error->all(FLERR,"Incorrect args for pair coefficients");
+
+  // EDIT
+  // decide number of samples for each time step
+  // here is where the chosen atoms are decided, not in the input script
+  // this is because I have to calculate energies here, not in compute_neigh
+  // because the eatom[i] thing is not right...
+  int nAtoms = 10;
+  if (nAtoms < 10) {
+    cout << "Number of chosen atoms (all atoms): " << nAtoms << endl;
+    chosenAtoms.resize(nAtoms);
+    dumpEnergies.resize(nAtoms);
+    for (int i=0; i < nAtoms; i++)
+      chosenAtoms[i] = i;
+  }
+  else {
+    int nChosenAtoms = 1;
+    chosenAtoms.resize(nChosenAtoms);
+    dumpEnergies.resize(nChosenAtoms);
+    chosenAtoms[0] = 307;
+  }
+
+
 
   // read args that map atom types to elements in potential file
   // map[i] = which element the Ith atom type is, -1 if NULL

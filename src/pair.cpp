@@ -1188,6 +1188,9 @@ void Pair::ev_tally3(int i, int j, int k, double evdwl, double ecoul,
   }
 }
 
+
+// EDIT
+// not divide triplet energy by 3
 void Pair::ev_tally3sampling(int i, int j, int k, double evdwl, double ecoul,
                              double *fj, double *fk, double *drji, double *drki)
 {
@@ -1240,6 +1243,9 @@ void Pair::ev_tally3sampling(int i, int j, int k, double evdwl, double ecoul,
   }
 }
 
+
+// EDIT 
+// only compute virial, not energy
 void Pair::ev_tally3_nn(int i, int j, int k,
                         double *fj, double *fk,
                         double xij, double yij, double zij,
