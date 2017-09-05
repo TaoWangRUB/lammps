@@ -186,16 +186,16 @@ void PairNN::compute(int eflag, int vflag)
 
       if (rsq >= cutoff*cutoff) continue;
 
-      // Add stuff to symmetry functions (later)
+      // ddd stuff to symmetry functions (later)
       // for now, just compute energy of one neighbour at a time
       double r = sqrt(rsq);
       evdwl = network(r);
         
       double dEdr = backPropagation();
       double fpair = -dEdr / r;
-      f[i][0] += fpair*delx;
-      f[i][1] += fpair*dely;
-      f[i][2] += fpair*delz;
+      fxtmp += fpair*delx;
+      fytmp += fpair*dely;
+      fztmp += fpair*delz;
       f[j][0] -= delx*fpair;
       f[j][1] -= dely*fpair;
       f[j][2] -= delz*fpair;
@@ -207,9 +207,9 @@ void PairNN::compute(int eflag, int vflag)
 
     // Apply neural network to get potential energy and forces
 
-    /*f[i][0] += fxtmp;
+    f[i][0] += fxtmp;
     f[i][1] += fytmp;
-    f[i][2] += fztmp;*/
+    f[i][2] += fztmp;
     //eng_vdwl += 1.0; // Just to see that we get some potential energy.
     // 0.5 since every other atom should somehow add the other half I guess.
     //eng_vdwl += 0.5*evdwl; 
@@ -248,7 +248,7 @@ void PairNN::coeff(int narg, char **arg)
   if (narg != 4)
     error->all(FLERR,"Incorrect args for pair coefficients");
 
-  // insure I,J args are * *
+  // ensure I,J args are * *
 
   if (strcmp(arg[0],"*") != 0 || strcmp(arg[1],"*") != 0)
     error->all(FLERR,"Incorrect args for pair coefficients");
