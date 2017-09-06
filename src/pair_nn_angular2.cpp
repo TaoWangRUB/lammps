@@ -658,9 +658,10 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
       // apply 2-body symmetry
       for (int s=0; s < m_numberOfSymmFunc; s++)
-        if ( m_parameters[s].size() == 3 ) 
+        if ( m_parameters[s].size() == 3 ) {
           inputVector(0,s) += G2(rij, m_parameters[s][0],
                                  m_parameters[s][1], m_parameters[s][2]);
+        }
 
       // collect triplets for this (i,j)
       arma::mat Rik(1, jnum);
@@ -712,7 +713,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
         neighk++;
 
         // apply 3-body symmetry
-        for (int s=0; s < m_numberOfSymmFunc; s++)
+        for (int s=0; s < m_numberOfSymmFunc; s++) {
           if ( m_parameters[s].size() == 4 ) 
             /*inputVector(0,s) += G4(rij, rik, rjk, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
@@ -720,6 +721,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
             inputVector(0,s) += G5(rij, rik, cosTheta,
                                    m_parameters[s][0], m_parameters[s][1], 
                                    m_parameters[s][2], m_parameters[s][3]);
+        }
       }
 
       // skip if no triplets left
@@ -748,12 +750,17 @@ void PairNNAngular2::compute(int eflag, int vflag)
     Rij = Rij.head_cols(neighbours);
     drij = drij.head_cols(neighbours);
 
+    // shift inputs
+    if (m_shift) 
+      for (int input=0; input < m_numberOfSymmFunc; input++)
+        inputVector[input] -= m_allMeans[input];
+
     // check
     for (auto inputValue : inputVector) {
       if (inputValue > 14.6962)
         cout << "Large input value: " << inputValue << endl;
-      else if (inputValue < 0.0)
-        cout << "Negative input value: " << inputValue << endl;
+      //else if (inputValue < 0.0)
+        //cout << "Negative input value: " << inputValue << endl;
     }
 
     // apply NN to get energy
@@ -1032,7 +1039,7 @@ void PairNNAngular2::read_file(char *file)
   inputGraph.open(graphFile.c_str(), std::ios::in);
 
   // check if file successfully opened
-  if ( !inputGraph.is_open() ) std::cout << "File is not opened" << std::endl;
+  if ( !inputGraph.is_open() ) std::cout << "Weight file is not opened" << std::endl;
 
   // process first line
   std::string activation;
@@ -1158,7 +1165,8 @@ void PairNNAngular2::read_file(char *file)
   inputParameters.open(parametersName.c_str(), std::ios::in);
 
   // check if file successfully opened
-  if ( !inputParameters.is_open() ) std::cout << "File is not opened" << std::endl;
+  if ( !inputParameters.is_open() ) std::cout << 
+    "Parameters file is not opened" << std::endl;
 
   inputParameters >> m_numberOfSymmFunc;
 
@@ -1185,6 +1193,25 @@ void PairNNAngular2::read_file(char *file)
   }
   inputParameters.close();
   std::cout << "File read......" << std::endl;
+
+
+  // read shift parameters file if it exists
+  std::string shiftName = trainingDir + "/shiftParameters.txt";
+  cout << "Shift parameters file: " << shiftName << endl;
+
+  std::ifstream inputShift;
+  inputShift.open(shiftName.c_str(), std::ios::in);
+
+  if ( !inputShift.is_open() ) {
+    cout << "Shift file does not exist" << endl;
+  }
+  else {
+    m_shift = 1;
+
+    //m_allMeans.resize(m_numberOfSymmFunc);
+    double mean;
+    while ( inputShift >> mean) m_allMeans.push_back(mean);
+  }
 
   // read config file
   /*std::ifstream inputConfigs;

@@ -186,7 +186,7 @@ void PairNN::compute(int eflag, int vflag)
 
       if (rsq >= cutoff*cutoff) continue;
 
-      // ddd stuff to symmetry functions (later)
+      // do stuff to symmetry functions (later)
       // for now, just compute energy of one neighbour at a time
       double r = sqrt(rsq);
       evdwl = network(r);

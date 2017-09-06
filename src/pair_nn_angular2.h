@@ -111,12 +111,14 @@ class PairNNAngular2 : public Pair {
   std::vector<arma::mat> m_activations        = std::vector<arma::mat>();
   std::vector<arma::mat> m_derivatives        = std::vector<arma::mat>();
   std::vector<std::vector<double>> m_parameters;
+  std::vector<double> m_allMeans;
   int m_numberOfInputs;
   int m_numberOfOutputs;
   int m_numberOfSymmFunc;
   int m_numberOfParameters;
   const double m_pi = arma::datum::pi;
   int myStep = 0;
+  bool m_shift = 0;
 
   std::ofstream out;
   std::ofstream out2;
