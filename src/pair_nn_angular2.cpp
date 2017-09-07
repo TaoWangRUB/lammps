@@ -755,16 +755,32 @@ void PairNNAngular2::compute(int eflag, int vflag)
       for (int input=0; input < m_numberOfSymmFunc; input++)
         inputVector[input] -= m_allMeans[input];
 
-    // check
-    for (auto inputValue : inputVector) {
-      if (inputValue > 14.6962)
-        cout << "Large input value: " << inputValue << endl;
-      //else if (inputValue < 0.0)
-        //cout << "Negative input value: " << inputValue << endl;
+    // check for extrapolation
+    bool extrapolation = 0;
+    for (int s=0; s < m_numberOfSymmFunc; s++) {
+      if (inputVector[s] < m_minmax[s][0]) {
+        cout << "Small input value function " << s << " : " << inputVector[s] << endl;
+        extrapolation = 1;
+      }
+      else if (inputVector[s] > m_minmax[s][1]) {
+        cout << "Large input value function " << s << " : " << inputVector[s] << endl;
+        extrapolation = 1;
+      }
     }
 
     // apply NN to get energy
     evdwl = network(inputVector);
+
+    // write neighbour list if extrapolation for current atom
+    if (extrapolation) {
+      cout << "YES" << endl;
+      outfile.open( filename.c_str(), std::ios::app );
+      for (int z=0; z < neighbours; z++)
+        outfile << drij(0,z) << " " << drij(1,z) << " " << drij(2,z) << " "
+             << Rij(0,z)*Rij(0,z) << " ";
+      outfile << evdwl << endl;       
+      outfile.close();
+    }
 
     eatom[i] += evdwl;
 
@@ -979,6 +995,13 @@ void PairNNAngular2::coeff(int narg, char **arg)
 
   if (strcmp(arg[0],"*") != 0 || strcmp(arg[1],"*") != 0)
     error->all(FLERR,"Incorrect args for pair coefficients");
+
+  // open extrapolation data file
+  filename = "Data/Si/TrainingData/neighbours.txt";
+  outfile.open( filename.c_str() );
+  if ( !outfile.is_open() )
+    cout << "Extrapolation data file not opened" << endl;
+  outfile.close();
 
   // read potential file and initialize potential parameters
   read_file(arg[2]);
@@ -1195,8 +1218,27 @@ void PairNNAngular2::read_file(char *file)
   std::cout << "File read......" << std::endl;
 
 
+  // read min/max file
+  std::string minmaxName = trainingDir + "/minmax.txt";
+  cout << "Min/max file: " << minmaxName << endl;
+
+  std::ifstream inputMinmax;
+  inputMinmax.open(minmaxName.c_str(), std::ios::in);
+
+  if ( !inputMinmax.is_open() ) {
+    cout << "Minmax file does not exist" << endl;
+  }
+
+
+  //m_allMeans.resize(m_numberOfSymmFunc);
+  std::vector<double> minmax(2);
+  while ( inputMinmax >> minmax[0] >> minmax[1]) {
+    m_minmax.push_back(minmax);
+  }
+
+
   // read shift parameters file if it exists
-  std::string shiftName = trainingDir + "/shiftParameters.txt";
+  std::string shiftName = trainingDir + "/mean.txt";
   cout << "Shift parameters file: " << shiftName << endl;
 
   std::ifstream inputShift;
@@ -1212,6 +1254,16 @@ void PairNNAngular2::read_file(char *file)
     double mean;
     while ( inputShift >> mean) m_allMeans.push_back(mean);
   }
+
+
+  for (auto i : m_minmax) {
+    for (auto j : i)
+      cout << j << " ";
+    cout << endl;
+  }
+
+  for (auto i : m_allMeans)
+    cout << i << endl;
 
   // read config file
   /*std::ifstream inputConfigs;
