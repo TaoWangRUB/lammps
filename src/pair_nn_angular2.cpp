@@ -759,11 +759,13 @@ void PairNNAngular2::compute(int eflag, int vflag)
     bool extrapolation = 0;
     for (int s=0; s < m_numberOfSymmFunc; s++) {
       if (inputVector[s] < m_minmax[s][0]) {
-        cout << "Small input value function " << s << " : " << inputVector[s] << endl;
+        m_minmax[s][0] = inputVector[s];
+        cout << std::setprecision(16) << "Small input value function " << s << " : " << inputVector[s] << endl;
         extrapolation = 1;
       }
       else if (inputVector[s] > m_minmax[s][1]) {
-        cout << "Large input value function " << s << " : " << inputVector[s] << endl;
+        m_minmax[s][1] = inputVector[s];
+        cout << std::setprecision(16) << "Large input value function " << s << " : " << inputVector[s] << endl;
         extrapolation = 1;
       }
     }
@@ -773,7 +775,6 @@ void PairNNAngular2::compute(int eflag, int vflag)
 
     // write neighbour list if extrapolation for current atom
     if (extrapolation) {
-      cout << "YES" << endl;
       outfile.open( filename.c_str(), std::ios::app );
       for (int z=0; z < neighbours; z++)
         outfile << drij(0,z) << " " << drij(1,z) << " " << drij(2,z) << " "
