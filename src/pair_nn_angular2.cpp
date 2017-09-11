@@ -774,16 +774,16 @@ void PairNNAngular2::compute(int eflag, int vflag)
     evdwl = network(inputVector);
 
     // write neighbour list if extrapolation for current atom
-    if (extrapolation) {
+    if (itag == 100) {
       outfile.open( filename.c_str(), std::ios::app );
       for (int z=0; z < neighbours; z++)
-        outfile << drij(0,z) << " " << drij(1,z) << " " << drij(2,z) << " "
+        outfile << std::setprecision(16) << drij(0,z) << " " << drij(1,z) << " " << drij(2,z) << " "
              << Rij(0,z)*Rij(0,z) << " ";
       outfile << evdwl << endl;       
       outfile.close();
     }
 
-    eatom[i] += evdwl;
+    //eatom[i] += evdwl;
 
     // set energy manually (not use ev_tally for energy)
     eng_vdwl += evdwl;
@@ -834,11 +834,11 @@ void PairNNAngular2::compute(int eflag, int vflag)
           f[tagsj[l]][1] += fpair*drij(1,l);
           f[tagsj[l]][2] += fpair*drij(2,l);
 
-          if (evflag) ev_tally_full(i, 0, 0, fpair,
-                                    drij(0,l), drij(1,l), drij(2,l));
-          //if (evflag) ev_tally(i, tagsj[l], nlocal, newton_pair,
-          //                     0, 0, fpair,
-          //                     drij(0,l), drij(1,l), drij(2,l));
+          //if (evflag) ev_tally_full(i, 0, 0, fpair,
+          //                          drij(0,l), drij(1,l), drij(2,l));
+          if (evflag) ev_tally(i, tagsj[l], nlocal, 1,
+                               0, 0, -fpair,
+                               -drij(0,l), -drij(1,l), -drij(2,l));
         }
       }
 
@@ -938,10 +938,15 @@ void PairNNAngular2::compute(int eflag, int vflag)
             f[tagsk[l][m]][1] += fk3[1];
             f[tagsk[l][m]][2] += fk3[2];
 
-            if (evflag) ev_tally3_nn(i, tagsj[l], tagsk[l][m],
-                                     fj3, fk3, 
-                                     drij(0,l), drij(1,l), drij(2,l),
-                                     driks[l](0,m), driks[l](1,m), driks[l](2,m));
+            //if (evflag) ev_tally3_nn(i, tagsj[l], tagsk[l][m],
+            //                         fj3, fk3, 
+            //                         drij(0,l), drij(1,l), drij(2,l),
+            //                         driks[l](0,m), driks[l](1,m), driks[l](2,m));
+
+            double delr1[] = {drij(0,l), drij(1,l), drij(2,l)};
+            double delr2[] = {driks[l](0,m), driks[l](1,m), driks[l](2,m)};
+            if (evflag) ev_tally3(i, tagsj[l], tagsk[l][m], 0.0, 0.0, fj3, fk3, 
+                                  delr1, delr2);
           }
         }
       }
@@ -1256,15 +1261,6 @@ void PairNNAngular2::read_file(char *file)
     while ( inputShift >> mean) m_allMeans.push_back(mean);
   }
 
-
-  for (auto i : m_minmax) {
-    for (auto j : i)
-      cout << j << " ";
-    cout << endl;
-  }
-
-  for (auto i : m_allMeans)
-    cout << i << endl;
 
   // read config file
   /*std::ifstream inputConfigs;
