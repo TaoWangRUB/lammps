@@ -756,7 +756,7 @@ void PairNNAngular2::compute(int eflag, int vflag)
         inputVector[input] -= m_allMeans[input];
 
     // check for extrapolation
-    bool extrapolation = 0;
+    /*bool extrapolation = 0;
     for (int s=0; s < m_numberOfSymmFunc; s++) {
       if (inputVector[s] < m_minmax[s][0]) {
         m_minmax[s][0] = inputVector[s];
@@ -768,20 +768,20 @@ void PairNNAngular2::compute(int eflag, int vflag)
         cout << std::setprecision(16) << "Large input value function " << s << " : " << inputVector[s] << endl;
         extrapolation = 1;
       }
-    }
+    }*/
 
     // apply NN to get energy
     evdwl = network(inputVector);
 
     // write neighbour list if extrapolation for current atom
-    if (itag == 100) {
+    /*if (itag == 100) {
       outfile.open( filename.c_str(), std::ios::app );
       for (int z=0; z < neighbours; z++)
         outfile << std::setprecision(16) << drij(0,z) << " " << drij(1,z) << " " << drij(2,z) << " "
              << Rij(0,z)*Rij(0,z) << " ";
       outfile << evdwl << endl;       
       outfile.close();
-    }
+    }*/
 
     //eatom[i] += evdwl;
 
