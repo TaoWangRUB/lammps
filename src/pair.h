@@ -15,6 +15,8 @@
 #define LMP_PAIR_H
 
 #include "pointers.h"
+#include "accelerator_kokkos.h"
+#include <vector>
 
 namespace LAMMPS_NS {
 
@@ -96,6 +98,10 @@ class Pair : protected Pointers {
                                  //       public so external driver can check
   int compute_flag;              // 0 if skip compute()
 
+  // EDIT 
+  std::vector<double> dumpEnergies;
+  std::vector<int> chosenAtoms;
+
   // KOKKOS host/device flag and data masks
 
   ExecutionSpace execution_space;
@@ -123,6 +129,12 @@ class Pair : protected Pointers {
                 double, double, double);
   void ev_tally3(int, int, int, double, double,
                  double *, double *, double *, double *);
+  void ev_tally3sampling(int, int, int, double, double,
+                 double *, double *, double *, double *);
+  void ev_tally3_nn(int i, int j, int k,
+                    double *fj, double *fk,
+                    double xij, double yij, double zij,
+                    double xik, double yik, double zik);
   void v_tally3(int, int, int, double *, double *, double *, double *);
   void v_tally4(int, int, int, int, double *, double *, double *,
                 double *, double *, double *);
