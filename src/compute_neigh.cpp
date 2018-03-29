@@ -34,6 +34,8 @@
 #include "pair.h"
 #include <vector>
 
+//#define EXTENDED_ERROR_CHECKING
+
 using namespace LAMMPS_NS;
 
 using std::cout;
@@ -54,7 +56,8 @@ ComputeNeigh::ComputeNeigh(LAMMPS *lmp, int narg, char **arg) :
   maxDelay = atoi(arg[3+nTypes]);
   useAlgo = atoi(arg[3+nTypes+1]);
 
-  cout << "useAlgo: " << useAlgo << endl;
+  fprintf(screen, "\nuseAlgo: %d\n", useAlgo);
+  fprintf(logfile, "\nuseAlgo: %d\n", useAlgo);
 
   scalar_flag = 1;
   extscalar = 1;
@@ -66,7 +69,8 @@ void ComputeNeigh::init()
 {
   chosenAtoms = force->pair->chosenAtoms;
   nChosenAtoms = chosenAtoms.size();
-  cout << "N chosen atoms in neigh: " << nChosenAtoms << endl;
+  
+  fprintf(screen, "\nN chosen atoms in neigh: %d\n", nChosenAtoms);
 
   tau.resize(nChosenAtoms);
   for (int t=0; t < nChosenAtoms; t++) tau[t] = 1;
@@ -84,16 +88,27 @@ void ComputeNeigh::init()
 
   // create filenames
   char buffer[20];
-  cout << "nTypes: " << nTypes << endl;
-  if (nTypes == 1)
-    sprintf(buffer, "%1.1f.txt", alpha[0]);
-  else
-    sprintf(buffer, "%1.1f-%1.1f.txt", alpha[0], alpha[1]);
+  int buffer_length = 0;
+  
+  fprintf(screen, "\nN atom types: %d\n", nTypes);
+  
+  for (std::vector<int>::size_type i = 0; i != alpha.size(); i++){
+    fprintf(screen, "\nalpha[%d] = %f\n", i, alpha[i]);
+    buffer_length += sprintf(buffer + buffer_length, "%1.1f", alpha[i]);
+    if (i == alpha.size() - 1){
+        buffer_length += sprintf(buffer + buffer_length, ".txt");
+        break;
+    }
+    else
+        buffer_length += sprintf(buffer + buffer_length, "-");
+        
+  }
   std::string name(buffer);
-  filenameTau = "tmp/1e4tau" + name;
-  filenameStep = "tmp/1e4step" + name;
-  cout << filenameTau << endl;
-  cout << filenameStep << endl;
+
+  filenameTau = "1e4tau" + name;
+  filenameStep = "1e4step" + name;
+  fprintf(screen, "file been created: %s\n", filenameTau.c_str());
+  fprintf(screen, "file been created: %s\n", filenameStep.c_str());
 
   // trying to open files, check if file successfully opened
   outfiles[0].open(filename0.c_str());
@@ -120,11 +135,11 @@ void ComputeNeigh::init()
 
   // request correct neighbour lists
   int irequest = neighbor->request(this,instance_me);
-  neighbor->requests[irequest]->pair = 0;
+  neighbor->requests[irequest]->pair = 0;       //
+  neighbor->requests[irequest]->compute = 1;    // compute class require neighbor list
   neighbor->requests[irequest]->half = 0;
-  neighbor->requests[irequest]->full = 1;
-  neighbor->requests[irequest]->compute = 1;
-  neighbor->requests[irequest]->occasional = 1;
+  neighbor->requests[irequest]->full = 1;       // full neighbor list is required
+  neighbor->requests[irequest]->occasional = 1; // neighbor list only updated when required
 }
 
 void ComputeNeigh::init_list(int id, NeighList *ptr)
@@ -136,7 +151,7 @@ void ComputeNeigh::init_list(int id, NeighList *ptr)
 
 double ComputeNeigh::compute_scalar()
 {
-  int i,j,k,ii,jj,kk,inum,jnum,jnumm1;
+  int i,j,k,ii,jj,kk,inum, gnum,jnum,jnumm1;
   int itype,jtype,ktype,ijparam,ikparam,ijkparam;
   tagint itag,jtag;
   double xtmp,ytmp,ztmp,delx,dely,delz,evdwl,fpair;
@@ -156,10 +171,12 @@ double ComputeNeigh::compute_scalar()
 
   int *mask = atom->mask;
 
-  inum = list->inum;
-  ilist = list->ilist;
-  numneigh = list->numneigh;
-  firstneigh = list->firstneigh;
+  inum = list->inum;                //# of I atoms neighbors are stored for
+  gnum = list->gnum;                //# of ghost atoms neighbors are stored for
+  ilist = list->ilist;              //local indices of neighbors for each I atom
+
+  numneigh = list->numneigh;        //# of neighbors for each I atom
+  firstneigh = list->firstneigh;    //ptr to 1st nearest neighbor list for each I atom
 
   //comm->reverse_comm_compute(this);
   //comm->forward_comm_compute(this);
