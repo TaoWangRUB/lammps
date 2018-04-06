@@ -37,7 +37,7 @@ class ComputeNeigh : public Compute {
 
  private:
   int myStep = 0;
-  std::vector<int> chosenAtoms;
+  std::vector<int> chosenAtoms; //indies of atoms has been chosen
   std::string filename0;   // 0: Si, 1: O2
   std::string filename1;
   std::vector<double> alpha;

@@ -203,16 +203,14 @@ double ComputeNeigh::compute_scalar()
       // calculate delay if force less than alpha
       else { 
         int factor = floor( alpha[itype] / F );
-        if (factor > maxDelay) tau[atomCount] = maxDelay;
-        else                   tau[atomCount] = factor;
+        tau[atomCount] = factor > maxDelay? maxDelay : factor;
       }
     }
 
     if (myStep > 0)
       if ( (myStep % tau[atomCount] > 0) && useAlgo) continue;
 
-    outStep << tag[i] << " " << myStep << endl;
-
+    outStep << myStep << " " << tag[i] << endl;
     if (itype == 0) outfiles[0].open(filename0.c_str(), std::ios::app);
     else            outfiles[1].open(filename1.c_str(), std::ios::app);
 
@@ -222,6 +220,8 @@ double ComputeNeigh::compute_scalar()
 
     jlist = firstneigh[i];
     jnum = numneigh[i];
+    //fprintf(screen, "from compute: %d\n", myStep);
+    //std::cout<< "from compute " << myStep << "\n";
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
       j &= NEIGHMASK;
@@ -240,16 +240,16 @@ double ComputeNeigh::compute_scalar()
       // check triplet cuts when making symmetry later
 
       if (nTypes > 1)
-        outfiles[itype] << std::setprecision(17) << delr1[0] << " " 
+        outfiles[itype] << std::setprecision(17)<< delr1[0] << " " 
         << delr1[1] << " " << delr1[2] << " " << rsq1 << " " << jtype << " ";
       else
-        outfiles[itype] << std::setprecision(17) << delr1[0] << " " 
+        outfiles[itype] << std::setprecision(17)<< delr1[0] << " " 
         << delr1[1] << " " << delr1[2] << " " << rsq1 << " ";
     }
 
     // store energy
     //cout << std::setprecision(10) << tag[i] << " " << dumpEnergies[atomCount] << " " << pair->eatom[i] << endl;
-    outfiles[itype] << std::setprecision(17) << dumpEnergies[atomCount] << std::endl;
+    outfiles[itype] << std::setprecision(17) << dumpEnergies[atomCount] <<std::endl;
     outfiles[itype].close();
     atomCount++;
   }   
@@ -257,7 +257,7 @@ double ComputeNeigh::compute_scalar()
 
   // write tau and step sampled to file
   outTau.open(filenameTau, std::ios::app);
-  for (int t : tau) outTau << t << " ";
+  for (int t : tau) outTau <<myStep << " " << t << " ";
   outTau << endl;
   outTau.close();
   myStep++;

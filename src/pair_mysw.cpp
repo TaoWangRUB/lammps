@@ -112,7 +112,9 @@ void PairMySW::compute(int eflag, int vflag)
   firstneigh = list->firstneigh;
 
   // loop over full neighbor list of my atoms
-
+  
+  double energy2 = 0.0;
+  double energy3 = 0.0;
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
     itag = tag[i];
@@ -125,7 +127,6 @@ void PairMySW::compute(int eflag, int vflag)
 
     jlist = firstneigh[i];
     jnum = numneigh[i];
-
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
       j &= NEIGHMASK;
@@ -162,10 +163,11 @@ void PairMySW::compute(int eflag, int vflag)
 
       if (evflag) ev_tally(i,j,nlocal,newton_pair,
                            evdwl,0.0,fpair,delx,dely,delz);
+      if (i == chosenAtoms[0] || j == chosenAtoms[0]) energy2 += evdwl/2.;
     }
 
     jnumm1 = jnum - 1;
-
+    
     for (jj = 0; jj < jnumm1; jj++) {
       j = jlist[jj];
       j &= NEIGHMASK;
@@ -204,9 +206,12 @@ void PairMySW::compute(int eflag, int vflag)
         f[k][2] += fk[2];
 
         if (evflag) ev_tally3(i,j,k,evdwl,0.0,fj,fk,delr1,delr2);
+        if (i == chosenAtoms[0] || j == chosenAtoms[0] || k == chosenAtoms[0]) energy3 += evdwl/3.;
       }
     }
   }
+  int id = chosenAtoms[0];
+  cout << std::setprecision(10) << tag[id] << " " << eatom[id] << " = " <<energy2 + energy3<< " ( "<< energy2 << " + " << energy3<< " ) " << endl;
 
   if (vflag_fdotr) virial_fdotr_compute();
 
@@ -219,7 +224,11 @@ void PairMySW::compute(int eflag, int vflag)
     itag = tag[i];
 
     // calculate energies manually, not eatom[i]
-    double energy = 0;
+    double energy2My = 0;
+    double energy3My = 0;
+    /*double *energy_atom;
+    memory->create(energy_atom,atom->nmax,"energy/atom:energy_atom");
+    for (i = 0; i < nlocal; i++) energy_atom[i] = 0.0;*/
 
     double xi = x[i][0];
     double yi = x[i][1];
@@ -235,6 +244,8 @@ void PairMySW::compute(int eflag, int vflag)
 
     jlist = firstneigh[i];
     jnum = numneigh[i];
+    // two body
+    //for (jj = 0; jj < jnum - 1; jj++) {
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
       j &= NEIGHMASK;
@@ -253,9 +264,26 @@ void PairMySW::compute(int eflag, int vflag)
       if (rsq1 >= params[ijparam].cutsq) continue;
 
       twobody(&params[ijparam],rsq1,fpair,eflag,evdwl);
-      energy += evdwl/2.0;
+      energy2My += evdwl/2.;
+    }
+    // three body i centered neighbors
+    for (jj = 0; jj < jnum - 1; jj++) {
+      j = jlist[jj];
+      j &= NEIGHMASK;
+      jtag = tag[j];
+      jtype = map[type[j]];
+
+      delr1[0] = x[j][0] - xi;
+      delr1[1] = x[j][1] - yi;
+      delr1[2] = x[j][2] - zi;
+
+      rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
+      ijparam = elem2param[itype][jtype][jtype];
+
+      if (rsq1 >= params[ijparam].cutsq) continue;
 
       for (kk = jj+1; kk < jnum; kk++) {
+      //for (kk = 0; kk < jnum; kk++) {
         k = jlist[kk];
         ktype = map[type[k]];
         ikparam = elem2param[itype][ktype][ktype];
@@ -267,15 +295,65 @@ void PairMySW::compute(int eflag, int vflag)
         rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
 
         if (rsq2 >= params[ikparam].cutsq) continue;
+        if (k == j) continue;
 
         threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
                   rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
-        energy += evdwl;
+        energy3My += evdwl / 3.;
       }
     }
+    // three body atoms neighbor contain iatom
+    int *jjlist, jjnum;
+    for (ii = 0; ii < jnum; ii++) {
+        i = jlist[ii];
+        itag = tag[i];
+        itype = map[type[i]];
+        xtmp = x[i][0];
+        ytmp = x[i][1];
+        ztmp = x[i][2];
+        jjlist = firstneigh[i];
+        jjnum = numneigh[i];
+        for (jj = 0; jj < jjnum - 1; jj++) {
+          j = jjlist[jj];
+          j &= NEIGHMASK;
+          jtag = tag[j];
+          jtype = map[type[j]];
 
+          delr1[0] = x[j][0] - xtmp;
+          delr1[1] = x[j][1] - ytmp;
+          delr1[2] = x[j][2] - ztmp;
+
+          rsq1 = delr1[0]*delr1[0] + delr1[1]*delr1[1] + delr1[2]*delr1[2];
+          ijparam = elem2param[itype][jtype][jtype];
+
+          if (rsq1 >= params[ijparam].cutsq) continue;
+
+          for (kk = jj+1; kk < jnum; kk++) {
+          //for (kk = 0; kk < jnum; kk++) {
+            k = jjlist[kk];
+            ktype = map[type[k]];
+            ikparam = elem2param[itype][ktype][ktype];
+            ijkparam = elem2param[itype][jtype][ktype];
+
+            delr2[0] = x[k][0] - xtmp;
+            delr2[1] = x[k][1] - ytmp;
+            delr2[2] = x[k][2] - ztmp;
+            rsq2 = delr2[0]*delr2[0] + delr2[1]*delr2[1] + delr2[2]*delr2[2];
+
+            if (rsq2 >= params[ikparam].cutsq) continue;
+            if (k == j) continue;
+
+            threebody(&params[ijparam],&params[ikparam],&params[ijkparam],
+                      rsq1,rsq2,delr1,delr2,fj,fk,eflag,evdwl);
+            if (i == chosenAtoms[0] || j == chosenAtoms[0] || k == chosenAtoms[0]) energy3My += evdwl / 3.;
+          }
+        }
+    }
+    cout << std::setprecision(10) << tag[i] << " " << energy2My + energy3My << " = " << energy2/energy2My << " + " << energy3/energy3My << endl;
     // store energy
-    dumpEnergies[chosenCount] = energy;
+    //dumpEnergies[chosenCount] = energy2My + energy3My;
+    //dumpEnergies[chosenCount] = energy;
+    dumpEnergies[chosenCount] = eatom[i];
     chosenCount++;
   }   
   myStep++;
@@ -296,6 +374,7 @@ void PairMySW::allocate()
 
 void PairMySW::makeDirectory() 
 {
+  std::cout<<"makeDirectory() is called"<<std::endl;
   filename = "Data/TrainingData/neighbours.txt";
 
   // trying to open file, check if file successfully opened
@@ -338,6 +417,7 @@ void PairMySW::coeff(int narg, char **arg)
   // this is because I have to calculate energies here, not in compute_neigh
   // because the eatom[i] thing is not right...
   int nAtoms = 10;
+  cout << "Initialize chosenAtoms..." << endl;
   if (nAtoms < 10) {
     cout << "Number of chosen atoms (all atoms): " << nAtoms << endl;
     chosenAtoms.resize(nAtoms);
